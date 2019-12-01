@@ -39,7 +39,26 @@ def part2_alternate():
     input_file.close()
 
 
+# A more classical recursive/functional solution
+def part2_alternate2():
+    input_file = open('input.txt', 'r')
+
+    def rec(cost):
+        next_cost = cost//3 - 2
+        if next_cost <= 0:
+            return 0
+
+        return next_cost + rec(next_cost)
+
+    total = sum(rec(int(line)) for line in input_file)
+
+    print(total)
+    input_file.close()
+
+
 if __name__ == '__main__':
     part1()
     part2()
+    print("ALTERNATE SOLUTIONS:")
     part2_alternate()
+    part2_alternate2()
