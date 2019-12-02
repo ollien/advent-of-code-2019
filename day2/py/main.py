@@ -53,7 +53,7 @@ def part2(inputs):
 
 
 if __name__ == '__main__':
-    with open('input.txt') as f:
+    with open('../input.txt') as f:
         inputs = [int(item) for item in f.read().rstrip().split(',')]
 
     print(part1(inputs))

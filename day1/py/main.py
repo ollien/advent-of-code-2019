@@ -3,12 +3,12 @@ import functools
 
 
 def part1():
-    with open('input.txt', 'r') as f:
+    with open('../input.txt', 'r') as f:
         print(sum(int(line)//3 - 2 for line in f))
 
 
 def part2():
-    with open('input.txt', 'r') as f:
+    with open('../input.txt', 'r') as f:
         modules = [int(line) for line in f]
 
     total = 0
@@ -23,7 +23,7 @@ def part2():
 
 # Somewhat of a weird solution, but by combining reduce with a recursive solution, we can get the correct answer :)
 def part2_alternate():
-    input_file = open('input.txt', 'r')
+    input_file = open('../input.txt', 'r')
 
     def reducer(total, cost):
         next_cost = cost//3 - 2
@@ -41,7 +41,7 @@ def part2_alternate():
 
 # A more classical recursive/functional solution
 def part2_alternate2():
-    input_file = open('input.txt', 'r')
+    input_file = open('../input.txt', 'r')
 
     def rec(cost):
         next_cost = cost//3 - 2
