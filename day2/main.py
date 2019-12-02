@@ -6,7 +6,8 @@ def execute_program(inputs):
     ADD_OPCODE = 1
     MULTIPLY_OPCODE = 2
 
-    for i, opcode in itertools.islice(enumerate(inputs), 0, None, 4):
+    program_memory = inputs[:]
+    for i, opcode in itertools.islice(enumerate(program_memory), 0, None, 4):
         operation = None
         if opcode == TERMINATE_OPCODE:
             break
@@ -17,12 +18,12 @@ def execute_program(inputs):
         else:
             raise Exception('Bad opcode: ' + str(opcode))
 
-        input_a_index = inputs[i + 1]
-        input_b_index = inputs[i + 2]
-        out_index = inputs[i + 3]
-        inputs[out_index] = operation(inputs[input_a_index], inputs[input_b_index])
+        input_a_index = program_memory[i + 1]
+        input_b_index = program_memory[i + 2]
+        out_index = program_memory[i + 3]
+        program_memory[out_index] = operation(program_memory[input_a_index], program_memory[input_b_index])
 
-    return inputs[0]
+    return program_memory[0]
 
 
 def part1(inputs):
@@ -40,7 +41,7 @@ def part2(inputs):
             inputs[1] = i
             inputs[2] = j
             # Execute the program, making sure we clone the inputs array so we don't reuse the list
-            result = execute_program(inputs[:])
+            result = execute_program(inputs)
             if result == DESIRED_OUTPUT:
                 return 100 * i + j
     else:
@@ -51,5 +52,5 @@ if __name__ == '__main__':
     with open('input.txt') as f:
         inputs = [int(item) for item in f.read().rstrip().split(',')]
 
-    print(part1(inputs[:]))
-    print(part2(inputs[:]))
+    print(part1(inputs))
+    print(part2(inputs))
