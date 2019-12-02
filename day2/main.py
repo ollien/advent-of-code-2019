@@ -7,6 +7,8 @@ def execute_program(inputs):
     MULTIPLY_OPCODE = 2
 
     program_memory = inputs[:]
+    # Each instruction moves the instruction pointer forward by 4.
+    # Iterate over the loop opcodes accordingly (stepping by 4)
     for i, opcode in itertools.islice(enumerate(program_memory), 0, None, 4):
         operation = None
         if opcode == TERMINATE_OPCODE:
@@ -18,9 +20,11 @@ def execute_program(inputs):
         else:
             raise Exception('Bad opcode: ' + str(opcode))
 
+        # Get parameters of program
         input_a_index = program_memory[i + 1]
         input_b_index = program_memory[i + 2]
         out_index = program_memory[i + 3]
+        # Run program with parameters
         program_memory[out_index] = operation(program_memory[input_a_index], program_memory[input_b_index])
 
     return program_memory[0]
