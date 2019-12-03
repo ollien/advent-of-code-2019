@@ -28,8 +28,8 @@ type Point struct {
 	y int
 }
 
-// PointSet represents a set of points
-type PointSet map[Point]struct{}
+// Path represents a path taken
+type Path []Point
 
 // DistanceTo finds the manhattan distance between p and p2
 func (p Point) DistanceTo(p2 Point) int {
@@ -44,13 +44,18 @@ func (p Point) Add(p2 Point) Point {
 	}
 }
 
-// Intersection finds the intersection between set1 and set2
-func (set PointSet) Intersection(set2 PointSet) PointSet {
-	res := make(PointSet)
+// Intersection finds the intersection between two paths
+func (path Path) Intersection(path2 Path) []Point {
+	res := []Point{}
+	pathPointSet := make(map[Point]struct{})
+	// Add all elements from the first path into the path set
+	for _, point := range path {
+		pathPointSet[point] = struct{}{}
+	}
 
-	for point := range set {
-		if _, ok := set2[point]; ok {
-			res[point] = struct{}{}
+	for _, point := range path2 {
+		if _, ok := pathPointSet[point]; ok {
+			res = append(res, point)
 		}
 	}
 
@@ -103,11 +108,11 @@ func makeDeltaPoint(pathComponent string) (Point, error) {
 	}
 }
 
-// NewPointSetFromPathString makes a point set of all points from the start, along each path
-func NewPointSetFromPathString(path string) (PointSet, error) {
+// NewPathFromPathString makes a Path from a string representing it
+func NewPathFromPathString(rawPath string) (Path, error) {
 	cursor := Point{0, 0}
-	pathComponents := strings.Split(path, ",")
-	pointSet := make(PointSet)
+	pathComponents := strings.Split(rawPath, ",")
+	path := Path{}
 	for _, component := range pathComponents {
 		deltaPoint, err := makeDeltaPoint(component)
 		if err != nil {
@@ -115,37 +120,50 @@ func NewPointSetFromPathString(path string) (PointSet, error) {
 		}
 
 		newCursor := cursor.Add(deltaPoint)
-		xStart := min(cursor.x, newCursor.x)
-		xEnd := max(cursor.x, newCursor.x)
-		for i := xStart; i < xEnd; i++ {
-			pointSet[Point{x: i, y: cursor.y}] = struct{}{}
+		// Trace out the paths
+		// This is a bit gross, but I don't know of a better way to do it
+		if cursor.x < newCursor.x {
+			for i := cursor.x; i < newCursor.x; i++ {
+				path = append(path, Point{x: i, y: cursor.y})
+			}
+		} else {
+			for i := cursor.x; i > newCursor.x; i-- {
+				path = append(path, Point{x: i, y: cursor.y})
+			}
 		}
 
-		yStart := min(cursor.y, newCursor.y)
-		yEnd := max(cursor.y, newCursor.y)
-		for i := yStart; i < yEnd; i++ {
-			pointSet[Point{x: cursor.x, y: i}] = struct{}{}
+		if cursor.y < newCursor.y {
+			for i := cursor.y; i < newCursor.y; i++ {
+				path = append(path, Point{x: cursor.x, y: i})
+			}
+		} else {
+			for i := cursor.y; i > newCursor.y; i-- {
+				path = append(path, Point{x: cursor.x, y: i})
+			}
 		}
 
 		cursor = newCursor
 	}
 
-	return pointSet, nil
+	return path, nil
 }
 
-func part1(paths []PointSet) (int, error) {
+func part1(paths []Path) (int, error) {
 	intersections := paths[0]
 	// Get all points that intersect between the paths
 	for _, path := range paths[1:] {
 		intersections = intersections.Intersection(path)
 	}
 
-	// We don't care about 0,0 as an intersection, as every path starts there.
-	delete(intersections, Point{0, 0})
-
 	// this bitshift represents the max int on the system
+	// https://stackoverflow.com/a/6878625
 	minDistance := int(^uint(0) >> 1)
-	for point := range intersections {
+	for _, point := range intersections {
+		// We don't care about 0,0 as an intersection, as every path starts there.
+		if point == (Point{0, 0}) {
+			continue
+		}
+
 		distance := point.DistanceTo(Point{0, 0})
 		if distance < minDistance {
 			minDistance = distance
@@ -163,9 +181,9 @@ func main() {
 
 	trimmedInput := strings.TrimSpace(string(inputContents))
 	rawPaths := strings.Split(trimmedInput, "\n")
-	paths := make([]PointSet, len(rawPaths))
+	paths := make([]Path, len(rawPaths))
 	for i, rawPath := range rawPaths {
-		paths[i], err = NewPointSetFromPathString(rawPath)
+		paths[i], err = NewPathFromPathString(rawPath)
 		if err != nil {
 			panic(err)
 		}
