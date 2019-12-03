@@ -62,6 +62,17 @@ func (path Path) Intersection(path2 Path) []Point {
 	return res
 }
 
+// Index returns the index at which the point occurs in the given path
+func (path Path) Index(point Point) (int, error) {
+	for i, pathPoint := range path {
+		if point == pathPoint {
+			return i, nil
+		}
+	}
+
+	return -1, errors.New("point not in path")
+}
+
 func abs(n int) int {
 	if n < 0 {
 		return n * -1
@@ -173,6 +184,41 @@ func part1(paths []Path) (int, error) {
 	return minDistance, nil
 }
 
+func part2(paths []Path) (int, error) {
+	intersections := paths[0]
+	// Get all points that intersect between the paths
+	for _, path := range paths[1:] {
+		intersections = intersections.Intersection(path)
+	}
+
+	// this bitshift represents the max int on the system
+	// https://stackoverflow.com/a/6878625
+	minLength := int(^uint(0) >> 2)
+	for _, point := range intersections {
+		// We don't care about 0,0 as an intersection, as every path starts there.
+		if point == (Point{0, 0}) {
+			continue
+		}
+
+		length := 0
+		for _, path := range paths {
+			// Index will equal the path length, as 0,0 is the first item in all paths
+			index, err := path.Index(point)
+			if err != nil {
+				return -1, fmt.Errorf("could not get index of point in path: %s", err)
+			}
+
+			length += index
+		}
+
+		if length < minLength {
+			minLength = length
+		}
+	}
+
+	return minLength, nil
+}
+
 func main() {
 	inputContents, err := ioutil.ReadFile("../input.txt")
 	if err != nil {
@@ -195,4 +241,11 @@ func main() {
 	}
 
 	fmt.Println(part1Res)
+
+	part2Res, err := part2(paths)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(part2Res)
 }
