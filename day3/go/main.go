@@ -81,22 +81,6 @@ func abs(n int) int {
 	return n
 }
 
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-
-	return b
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-
-	return b
-}
-
 // makeDeltaPoint makes a point that represents the delta produced by the path component
 func makeDeltaPoint(pathComponent string) (Point, error) {
 	direction := Direction(pathComponent[0])
