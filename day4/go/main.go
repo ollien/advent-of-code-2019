@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 )
 
 func isValidPart1Password(password int) bool {
@@ -45,31 +46,16 @@ func isValidPart2Password(password int) bool {
 		return false
 	}
 
-	lastChar := rune(0)
-	charCount := 0
 	passwordStr := strconv.Itoa(password)
-	// We will define an isolated pair to be a set like 22, but not 222
-	hasIsolatedRepeatedPair := false
 	for _, char := range passwordStr {
-		if lastChar == char {
-			charCount++
-		} else if hasIsolatedRepeatedPair {
-			// Once we find an isolated pair, the other digits don't matter
+		// Because we know the digits must already be ascending, we know that there must be exactly two of one of the
+		// characters, and if there is more than one, they must be next to each other
+		if strings.Count(passwordStr, fmt.Sprintf("%c", char)) == 2 {
 			return true
-		} else {
-			charCount = 1
-		}
-
-		lastChar = char
-		if charCount > 2 {
-			// If the char count ever exceeds two, we need to say that we don't have an isolated pair
-			hasIsolatedRepeatedPair = false
-		} else if charCount == 2 {
-			hasIsolatedRepeatedPair = true
 		}
 	}
 
-	return hasIsolatedRepeatedPair
+	return false
 }
 
 func main() {
