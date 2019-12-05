@@ -75,17 +75,13 @@ class Operation:
             # Add 1 to move past the opcode itself
             pointer = instruction_pointer + i + 1
             arg = memory[pointer]
-            print(f"raw_arg={arg}")
             if mode == Operation.MODE_PARAMETER:
-                print(f"Resolving {arg} to {memory[arg]}")
                 arg = memory[arg]
             elif mode != Operation.MODE_IMMEDIATE:
                 raise ValueError(f"Invalid parameter mode {mode}")
 
             args.append(arg)
 
-        print("MODES:", self.modes)
-        print("ARGS:", args)
         func = OPERATION_FUNCS[self.opcode]
         if program_input is not None:
             jump_addr = func(memory, program_input, *args)
@@ -100,17 +96,14 @@ class Operation:
     @staticmethod
     def add(memory: List[int], a: int, b: int, loc: int) -> None:
         memory[loc] = a + b
-        print(f"{a} + {b} => {memory[loc]} @ {loc}")
 
     @staticmethod
     def multiply(memory: List[int], a: int, b: int, loc: int) -> None:
         memory[loc] = a * b
-        print(f"{a} * {b} => {memory[loc]} @ {loc}")
 
     @staticmethod
     def input(memory: List[int], program_input: int, loc: int) -> None:
         memory[loc] = program_input
-        print(f"{program_input} => {memory[loc]} @ {loc}")
 
     @staticmethod
     def output(memory: List[int], value: int) -> None:
