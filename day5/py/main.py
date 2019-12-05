@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 
 class Operation:
@@ -8,9 +8,14 @@ class Operation:
     OPCODE_MULTIPLY = 2
     OPCODE_INPUT = 3
     OPCODE_OUTPUT = 4
+    OPCODE_JUMP_IF_TRUE = 5
+    OPCODE_JUMP_IF_FALSE = 6
+    OPCODE_LESS_THAN = 7
+    OPCODE_EQUALS = 8
     MODE_PARAMETER = 0
     MODE_IMMEDIATE = 1
-    OPCODE__ALLS = (OPCODE_TERMINATE, OPCODE_ADD, OPCODE_MULTIPLY, OPCODE_INPUT, OPCODE_OUTPUT)
+    OPCODE__ALLS = (OPCODE_TERMINATE, OPCODE_ADD, OPCODE_MULTIPLY, OPCODE_INPUT, OPCODE_OUTPUT,
+                    OPCODE_JUMP_IF_TRUE, OPCODE_JUMP_IF_FALSE, OPCODE_LESS_THAN, OPCODE_EQUALS)
 
     def __init__(self, instruction: int):
         # The opcode is the first two digits of the number, the rest are parameter modes
@@ -25,9 +30,14 @@ class Operation:
             Operation.OPCODE_ADD: 3,
             Operation.OPCODE_MULTIPLY: 3,
             Operation.OPCODE_INPUT: 1,
-            Operation.OPCODE_OUTPUT: 1
+            Operation.OPCODE_OUTPUT: 1,
+            Operation.OPCODE_JUMP_IF_TRUE: 2,
+            Operation.OPCODE_JUMP_IF_FALSE: 2,
+            Operation.OPCODE_LESS_THAN: 3,
+            Operation.OPCODE_EQUALS: 3,
         }
-        MEMORY_OPCODES = (Operation.OPCODE_ADD, Operation.OPCODE_MULTIPLY, Operation.OPCODE_INPUT)
+        MEMORY_OPCODES = (Operation.OPCODE_ADD, Operation.OPCODE_MULTIPLY, Operation.OPCODE_INPUT,
+                          Operation.OPCODE_LESS_THAN, Operation.OPCODE_EQUALS)
 
         num_parameters = PARAMETER_COUNTS[self.opcode]
         modes = [Operation.MODE_PARAMETER for i in range(num_parameters)]
@@ -45,7 +55,7 @@ class Operation:
         return tuple(modes)
 
     # Run the given operation, starting at the given instruction pointer
-    # Returns the number of steps the instruction pointer went
+    # Returns the address that the instruction pointer should become
     def run(self, memory: List[int], instruction_pointer: int, program_input=None) -> int:
         OPERATION_FUNCS = {
             # nop for terminate
@@ -53,7 +63,11 @@ class Operation:
             Operation.OPCODE_ADD: Operation.add,
             Operation.OPCODE_MULTIPLY: Operation.multiply,
             Operation.OPCODE_INPUT: Operation.input,
-            Operation.OPCODE_OUTPUT: Operation.output
+            Operation.OPCODE_OUTPUT: Operation.output,
+            Operation.OPCODE_JUMP_IF_TRUE: Operation.jump_if_true,
+            Operation.OPCODE_JUMP_IF_FALSE: Operation.jump_if_false,
+            Operation.OPCODE_LESS_THAN: Operation.less_than,
+            Operation.OPCODE_EQUALS: Operation.equals
         }
 
         args = []
@@ -74,30 +88,49 @@ class Operation:
         print("ARGS:", args)
         func = OPERATION_FUNCS[self.opcode]
         if program_input is not None:
-            func(memory, program_input, *args)
+            jump_addr = func(memory, program_input, *args)
         else:
-            func(memory, *args)
+            jump_addr = func(memory, *args)
 
-        return len(self.modes) + 1
+        if jump_addr is not None:
+            return jump_addr
+
+        return instruction_pointer + len(self.modes) + 1
 
     @staticmethod
-    def add(memory: List[int], a: int, b: int, loc: int):
+    def add(memory: List[int], a: int, b: int, loc: int) -> None:
         memory[loc] = a + b
         print(f"{a} + {b} => {memory[loc]} @ {loc}")
 
     @staticmethod
-    def multiply(memory: List[int], a: int, b: int, loc: int):
+    def multiply(memory: List[int], a: int, b: int, loc: int) -> None:
         memory[loc] = a * b
         print(f"{a} * {b} => {memory[loc]} @ {loc}")
 
     @staticmethod
-    def input(memory: List[int], program_input: int, loc: int):
+    def input(memory: List[int], program_input: int, loc: int) -> None:
         memory[loc] = program_input
         print(f"{program_input} => {memory[loc]} @ {loc}")
 
     @staticmethod
-    def output(memory: List[int], value: int):
+    def output(memory: List[int], value: int) -> None:
         print("OUTPUT:", value)
+
+    @staticmethod
+    def jump_if_true(memory: List[int], test_value: int, new_instruction_pointer: int) -> Optional[int]:
+        return new_instruction_pointer if test_value != 0 else None
+
+    @staticmethod
+    def jump_if_false(memory: List[int], test_value: int, new_instruction_pointer: int) -> Optional[int]:
+        return new_instruction_pointer if test_value == 0 else None
+
+    @staticmethod
+    def less_than(memory: List[int], a: int, b: int, loc: int):
+        memory[loc] = int(a < b)
+
+    @staticmethod
+    def equals(memory: List[int], a: int, b: int, loc: int):
+        memory[loc] = int(a == b)
 
 
 def execute_program(initial_state: List[int], program_inputs: List[int]):
@@ -113,12 +146,15 @@ def execute_program(initial_state: List[int], program_inputs: List[int]):
             program_input = program_inputs[input_cursor]
             input_cursor += 1
 
-        advance_count = operation.run(memory, i, program_input)
-        i += advance_count
+        i = operation.run(memory, i, program_input)
 
 
 def part1(inputs):
     execute_program(inputs, [1])
+
+
+def part2(inputs):
+    execute_program(inputs, [5])
 
 
 if __name__ == '__main__':
@@ -126,3 +162,4 @@ if __name__ == '__main__':
         inputs = [int(item) for item in f.read().rstrip().split(',')]
 
     part1(inputs)
+    part2(inputs)
