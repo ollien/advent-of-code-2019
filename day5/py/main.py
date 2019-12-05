@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+import sys
 from typing import List, Tuple, Optional
 
 
@@ -142,17 +142,21 @@ def execute_program(initial_state: List[int], program_inputs: List[int]):
         i = operation.run(memory, i, program_input)
 
 
-def part1(inputs):
+def part1(inputs: List[int]):
     execute_program(inputs, [1])
 
 
-def part2(inputs):
+def part2(inputs: List[int]):
     execute_program(inputs, [5])
 
 
-if __name__ == '__main__':
-    with open('../input.txt') as f:
-        inputs = [int(item) for item in f.read().rstrip().split(',')]
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print("Usage: ./main.py in_file")
+        sys.exit(1)
+
+    with open(sys.argv[1]) as f:
+        inputs = [int(item) for item in f.read().rstrip().split(",")]
 
     part1(inputs)
     part2(inputs)
