@@ -2,6 +2,11 @@ import sys
 from typing import List, Tuple, Optional
 
 
+# Halt indicates that the assembled program should terminate
+class Halt(Exception):
+    pass
+
+
 class Operation:
     OPCODE_TERMINATE = 99
     OPCODE_ADD = 1
@@ -59,7 +64,7 @@ class Operation:
     def run(self, memory: List[int], instruction_pointer: int, program_input=None) -> int:
         OPERATION_FUNCS = {
             # nop for terminate
-            Operation.OPCODE_TERMINATE: lambda x: None,
+            Operation.OPCODE_TERMINATE: Operation.terminate,
             Operation.OPCODE_ADD: Operation.add,
             Operation.OPCODE_MULTIPLY: Operation.multiply,
             Operation.OPCODE_INPUT: Operation.input,
@@ -92,6 +97,10 @@ class Operation:
             return jump_addr
 
         return instruction_pointer + len(self.modes) + 1
+
+    @staticmethod
+    def terminate(memory: List[int]) -> None:
+        raise Halt("catch fire")
 
     @staticmethod
     def add(memory: List[int], a: int, b: int, loc: int) -> None:
@@ -133,13 +142,15 @@ def execute_program(initial_state: List[int], program_inputs: List[int]):
     while i < len(memory):
         operation = Operation(memory[i])
         program_input = None
-        if operation.opcode == Operation.OPCODE_TERMINATE:
-            break
-        elif operation.opcode == Operation.OPCODE_INPUT:
+        # If we're looking for input
+        if operation.opcode == Operation.OPCODE_INPUT:
             program_input = program_inputs[input_cursor]
             input_cursor += 1
 
-        i = operation.run(memory, i, program_input)
+        try:
+            i = operation.run(memory, i, program_input)
+        except Halt:
+            break
 
 
 def part1(inputs: List[int]):
