@@ -1,9 +1,12 @@
 import collections
 import sys
 from dataclasses import dataclass
-from typing import List, Dict
+from typing import List, Dict, Optional, Callable
+import math
 
 ROOT_NODE = 'COM'
+YOU_NODE = 'YOU'
+TARGET_NODE = 'SAN'
 
 
 @dataclass
@@ -11,17 +14,38 @@ class Node:
     name: str
     depth: int
     children: List['Node']
+    parent: 'Node'
+
+    # Apply a function to this node and all nodes underneath it
+    def apply_to_tree(self, f: Callable[['Node'], None]) -> None:
+        f(self)
+        for child in self.children:
+            child.apply_to_tree(f)
+
+    # Search for a node in the tree consisting of this node and all nodes underneath it
+    def find(self, target_name: str) -> Optional['Node']:
+        # Find the target in the child list
+        for child in self.children:
+            if child.name == target_name:
+                return child
+
+        for child in self.children:
+            res = child.find(target_name)
+            if res is not None:
+                return res
+        else:
+            return None
 
 
 # Make a tree of orbits from the input dict, returning the root node (COM)
 def make_orbit_tree(raw_orbits: Dict[str, List[str]]) -> Node:
     def add_item(node: Node, new_child: str):
-        child_node = Node(new_child, node.depth + 1, [])
+        child_node = Node(name=new_child, depth=node.depth + 1, children=[], parent=node)
         node.children.append(child_node)
         for subchild in raw_orbits[new_child]:
             add_item(child_node, subchild)
 
-    root = Node(ROOT_NODE, 0, [])
+    root = Node(name=ROOT_NODE, depth=0, children=[], parent=None)
     add_item(root, raw_orbits[ROOT_NODE][0])
 
     return root
@@ -31,14 +55,59 @@ def part1(root: Node) -> int:
     orbits = 0
 
     # Go over all of the children, and add up their depths
-    def get_orbit_count(node: Node):
+    def add_depth(node: Node):
         nonlocal orbits
         orbits += node.depth
-        for child in node.children:
-            get_orbit_count(child)
 
-    get_orbit_count(root)
+    root.apply_to_tree(add_depth)
+
     return orbits
+
+
+# Search the tree using Dikjstra's algorithm
+def part2(root: Node):
+    # Get all of the nodes in the tree as a dict
+    unvisited = {}
+
+    def collect_node(node):
+        nonlocal unvisited
+        unvisited[node.name] = node
+
+    root.apply_to_tree(collect_node)
+    # Get our source and target: the parent of the YOU and SAN nodes
+    cursor = root.find(YOU_NODE).parent
+    target_node = root.find(TARGET_NODE).parent
+
+    # Run Dikjstra's algorithm
+    # Using a default dict, we set all initial distances to infinity
+    distances = collections.defaultdict(lambda: math.inf)
+    distances[cursor.name] = 0
+    while cursor is not None:
+        neighbors = cursor.children + ([cursor.parent] if cursor.parent is not None else [])
+
+        for child in neighbors:
+            if child.name not in unvisited:
+                continue
+
+            # The distance to all nodes is 1
+            new_distance = distances[cursor.name] + 1
+            if new_distance < distances[child.name]:
+                distances[child.name] = new_distance
+
+        del unvisited[cursor.name]
+        # If we've used our target, we're done.
+        if cursor == target_node:
+            break
+
+        # Get the next cursor
+        try:
+            new_cursor_name = min(unvisited, key=lambda name: distances[name])
+            cursor = unvisited[new_cursor_name]
+        except ValueError:
+            # There are no nodes left to check
+            cursor = None
+
+    return distances[target_node.name]
 
 
 if __name__ == "__main__":
@@ -56,3 +125,4 @@ if __name__ == "__main__":
 
     root = make_orbit_tree(raw_orbits)
     print(part1(root))
+    print(part2(root))
