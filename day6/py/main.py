@@ -42,10 +42,12 @@ def make_orbit_tree(raw_orbits: Dict[str, List[str]]) -> Node:
     def add_item(node: Node, new_child: str):
         child_node = Node(name=new_child, depth=node.depth + 1, children=[], parent=node)
         node.children.append(child_node)
+        # Process the orbits of the nodes that are orbiting this one
         for subchild in raw_orbits[new_child]:
             add_item(child_node, subchild)
 
     root = Node(name=ROOT_NODE, depth=0, children=[], parent=None)
+    # Start with the root, adding its only child
     add_item(root, raw_orbits[ROOT_NODE][0])
 
     return root
@@ -75,37 +77,39 @@ def part2(root: Node):
 
     root.apply_to_tree(collect_node)
     # Get our source and target: the parent of the YOU and SAN nodes
-    cursor = root.find(YOU_NODE).parent
+    cursor_node = root.find(YOU_NODE).parent
     target_node = root.find(TARGET_NODE).parent
+    if cursor_node is None or target_node is None:
+        raise ValueError("Could not find source or destination in graph")
 
     # Run Dikjstra's algorithm
     # Using a default dict, we set all initial distances to infinity
     distances = collections.defaultdict(lambda: math.inf)
-    distances[cursor.name] = 0
-    while cursor is not None:
-        neighbors = cursor.children + ([cursor.parent] if cursor.parent is not None else [])
+    distances[cursor_node.name] = 0
+    while len(unvisited) > 0:
+        neighbors = cursor_node.children + ([cursor_node.parent] if cursor_node.parent is not None else [])
 
         for child in neighbors:
             if child.name not in unvisited:
                 continue
 
             # The distance to all nodes is 1
-            new_distance = distances[cursor.name] + 1
+            new_distance = distances[cursor_node.name] + 1
             if new_distance < distances[child.name]:
                 distances[child.name] = new_distance
 
-        del unvisited[cursor.name]
+        del unvisited[cursor_node.name]
         # If we've used our target, we're done.
-        if cursor == target_node:
+        if cursor_node == target_node:
             break
 
         # Get the next cursor
         try:
             new_cursor_name = min(unvisited, key=lambda name: distances[name])
-            cursor = unvisited[new_cursor_name]
+            cursor_node = unvisited[new_cursor_name]
         except ValueError:
             # There are no nodes left to check
-            cursor = None
+            break
 
     return distances[target_node.name]
 
@@ -118,6 +122,7 @@ if __name__ == "__main__":
     with open(sys.argv[1]) as f:
         inputs = [line.rstrip() for line in f]
 
+    # Make a dict of planet => planets that are orbiting it
     raw_orbits = collections.defaultdict(list)
     for item in inputs:
         orbiting, orbiter = item.split(")")
