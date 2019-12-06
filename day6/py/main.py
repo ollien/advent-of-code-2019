@@ -66,7 +66,8 @@ def part1(root: Node) -> int:
     return orbits
 
 
-# Search the tree using Dikjstra's algorithm
+# Search the tree using Dikjstra's algorithm (BFS probably would have been more apt, but this works)
+# See: https://i.imgur.com/mIws6Fd.png
 def part2(root: Node):
     # Get all of the nodes in the tree as a dict
     unvisited = {}
