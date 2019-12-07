@@ -1,0 +1,134 @@
+--- day5intcode.py	2019-12-07 02:05:47.884308151 -0500
++++ day7intcode.py	2019-12-07 02:05:23.720568375 -0500
+@@ -1,5 +1,6 @@
+ import sys
+-from typing import Iterable, List, Tuple, Optional
++import itertools
++from typing import List, Tuple, Optional
+ 
+ 
+ # Halt indicates that the assembled program should terminate
+@@ -29,6 +30,7 @@
+         if self.opcode not in Operation.ALL_OPCODES:
+             raise ValueError(f"Bad opcode: {self.opcode}")
+         self.modes: Tuple[int, ...] = self._extract_parameter_modes(instruction//100)
++        self.output = None
+ 
+     def _extract_parameter_modes(self, raw_modes) -> Tuple[int, ...]:
+         PARAMETER_COUNTS = {
+@@ -63,8 +65,8 @@
+         return tuple(modes)
+ 
+     # Run the given operation, starting at the given instruction pointer
+-    # Returns the address that the instruction pointer should become
+-    def run(self, memory: List[int], instruction_pointer: int, program_input: Optional[int] = None) -> int:
++    # Returns the address that the instruction pointer should become, followed by the output of the operation, if any
++    def run(self, memory: List[int], instruction_pointer: int, program_input: Optional[int] = None) -> Tuple[int, Optional[int]]:
+         OPERATION_FUNCS = {
+             # nop for terminate
+             Operation.OPCODE_TERMINATE: Operation.terminate,
+@@ -78,6 +80,9 @@
+             Operation.OPCODE_EQUALS: Operation.equals
+         }
+ 
++        # Reset the output of a previous run
++        self.output = None
++
+         args = []
+         for i, mode in enumerate(self.modes):
+             # Add 1 to move past the opcode itself
+@@ -92,65 +97,68 @@
+ 
+         func = OPERATION_FUNCS[self.opcode]
+         if program_input is None:
+-            jump_addr = func(memory, *args)
++            jump_addr = func(self, memory, *args)
+         else:
+-            jump_addr = func(memory, program_input, *args)
++            jump_addr = func(self, memory, program_input, *args)
+ 
+         if jump_addr is not None:
+-            return jump_addr
++            return jump_addr, self.output
+ 
+-        return instruction_pointer + len(self.modes) + 1
++        return instruction_pointer + len(self.modes) + 1, self.output
+ 
+-    @staticmethod
+-    def terminate(memory: List[int]) -> None:
++    def terminate(self, memory: List[int]) -> None:
+         raise Halt("catch fire")
+ 
+-    @staticmethod
+-    def add(memory: List[int], a: int, b: int, loc: int) -> None:
++    def add(self, memory: List[int], a: int, b: int, loc: int) -> None:
+         memory[loc] = a + b
+ 
+-    @staticmethod
+-    def multiply(memory: List[int], a: int, b: int, loc: int) -> None:
++    def multiply(self, memory: List[int], a: int, b: int, loc: int) -> None:
+         memory[loc] = a * b
+ 
+-    @staticmethod
+-    def input(memory: List[int], program_input: int, loc: int) -> None:
++    def input(self, memory: List[int], program_input: int, loc: int) -> None:
+         memory[loc] = program_input
+ 
+-    @staticmethod
+-    def output(memory: List[int], value: int) -> None:
++    def output(self, memory: List[int], value: int) -> None:
++        self.output = value
+         print("OUTPUT:", value)
+ 
+-    @staticmethod
+-    def jump_if_true(memory: List[int], test_value: int, new_instruction_pointer: int) -> Optional[int]:
++    def jump_if_true(self, memory: List[int], test_value: int, new_instruction_pointer: int) -> Optional[int]:
+         return new_instruction_pointer if test_value != 0 else None
+ 
+-    @staticmethod
+-    def jump_if_false(memory: List[int], test_value: int, new_instruction_pointer: int) -> Optional[int]:
++    def jump_if_false(self, memory: List[int], test_value: int, new_instruction_pointer: int) -> Optional[int]:
+         return new_instruction_pointer if test_value == 0 else None
+ 
+-    @staticmethod
+-    def less_than(memory: List[int], a: int, b: int, loc: int):
++    def less_than(self, memory: List[int], a: int, b: int, loc: int):
+         memory[loc] = int(a < b)
+ 
+-    @staticmethod
+-    def equals(memory: List[int], a: int, b: int, loc: int):
++    def equals(self, memory: List[int], a: int, b: int, loc: int):
+         memory[loc] = int(a == b)
+ 
+ 
+-def execute_program(initial_state: List[int], program_inputs: List[int]):
+-    memory = initial_state[:]
+-    i = 0
++# Executes the program, returning the instruction pointer to continue at (if the program paused) and a list of all
++# outputs that occurred during the program's execution
++def execute_program(memory: List[int], program_inputs: List[int], initial_instruction_pointer: int = 0) -> (Optional[int], List[int]):
++    i = initial_instruction_pointer
+     input_cursor = 0
++    outputs = []
+     while i < len(memory):
+         operation = Operation(memory[i])
+         program_input = None
+         # If we're looking for input
+         if operation.opcode == Operation.OPCODE_INPUT:
++            # If we are out of input, don't fail out, but rather just pause execution
++            if input_cursor >= len(program_inputs):
++                return i, outputs
+             program_input = program_inputs[input_cursor]
+             input_cursor += 1
+ 
+         try:
+-            i = operation.run(memory, i, program_input)
++            i, output = operation.run(memory, i, program_input)
+         except Halt:
+             break
++
++        if output is not None:
++            outputs.append(output)
++
++    # The program is finished, and we are saying there is no instruction pointer
++    return None, outputs
