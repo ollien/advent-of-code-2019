@@ -135,10 +135,10 @@ class Operation:
         memory[loc] = int(a == b)
 
 
-# Executes the program, returning a list of all outputs that occurred during the program
-def execute_program(initial_state: List[int], program_inputs: List[int]) -> List[int]:
-    memory = initial_state[:]
-    i = 0
+# Executes the program, returning the instruction pointer to continue at (if the program paused) and a list of all
+# outputs that occurred during the program's execution
+def execute_program(memory: List[int], program_inputs: List[int], initial_instruction_pointer: int = 0) -> (Optional[int], List[int]):
+    i = initial_instruction_pointer
     input_cursor = 0
     outputs = []
     while i < len(memory):
@@ -146,6 +146,9 @@ def execute_program(initial_state: List[int], program_inputs: List[int]) -> List
         program_input = None
         # If we're looking for input
         if operation.opcode == Operation.OPCODE_INPUT:
+            # If we are out of input, don't fail out, but rather just pause execution
+            if input_cursor >= len(program_inputs):
+                return i, outputs
             program_input = program_inputs[input_cursor]
             input_cursor += 1
 
@@ -157,17 +160,45 @@ def execute_program(initial_state: List[int], program_inputs: List[int]) -> List
         if output is not None:
             outputs.append(output)
 
-    return outputs
+    # The program is finished, and we are saying there is no instruction pointer
+    return None, outputs
 
 
-def part1(inputs: List[int]):
+def part1(inputs: List[int]) -> int:
     possible_phases = list(range(5))
     max_output = 0
     for permutation in itertools.permutations(possible_phases):
         last_output = 0
         for phase in permutation:
-            outputs = execute_program(inputs, [phase, last_output])
+            _, outputs = execute_program(inputs[:], [phase, last_output])
             last_output = outputs[-1]
+
+        if last_output > max_output:
+            max_output = last_output
+
+    return max_output
+
+
+def part2(inputs: List[int]) -> int:
+    max_output = 0
+    for phase_permutation in itertools.permutations(range(5, 10)):
+        last_output = 0
+        amplifiers = [{"memory": inputs[:], "next_ip": 0} for i in range(5)]
+        # Go over all of the amplifiers and the phase permutation item one by one
+        for amplifier, phase in itertools.cycle(zip(amplifiers, phase_permutation)):
+            next_input = [last_output]
+            # If the program is not currently running, add the phase as the first input
+            # Passing both inputs allows us to have an output from this step
+            if amplifier["next_ip"] == 0:
+                next_input.insert(0, phase)
+
+            last_ip, outputs = execute_program(amplifier["memory"], next_input, amplifier["next_ip"])
+            amplifier["next_ip"] = last_ip
+            # We are sure we will only get one output for this phase
+            last_output = outputs[-1]
+            # If none of the programs are running, stop
+            if all(amplifier["next_ip"] is None for amplifier in amplifiers):
+                break
 
         if last_output > max_output:
             max_output = last_output
@@ -185,3 +216,5 @@ if __name__ == "__main__":
 
     print("PART 1")
     print(part1(inputs))
+    print("PART 2")
+    print(part2(inputs))
