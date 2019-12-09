@@ -1,5 +1,4 @@
 import collections
-import itertools
 import sys
 from typing import List, Tuple, Optional
 
@@ -190,6 +189,10 @@ def part1(inputs: Memory) -> int:
     execute_program(memory.copy(), [1])
 
 
+def part2(inputs: Memory) -> int:
+    execute_program(memory.copy(), [2])
+
+
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("Usage: ./main.py in_file")
@@ -201,3 +204,4 @@ if __name__ == "__main__":
             memory[i] = int(item)
 
     part1(memory)
+    part2(memory)
