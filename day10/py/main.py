@@ -1,5 +1,6 @@
 import sys
 import fractions
+import math
 from typing import Tuple, Set
 
 ASTEROID_CHAR = '#'
@@ -38,33 +39,29 @@ def search_for_visible_in_all_directions(space_map: Tuple[Tuple[str, ...]], star
 
 def get_visible_asteroid_count(space_map: Tuple[Tuple[str, ...]], start_row: int, start_col: int) -> int:
     asteroids = set()
-    # Because the vertical slopes are undefined, we have to search for them manually
-    for row in range(start_row-1, -1, -1):
-        if space_map[row][start_col] == ASTEROID_CHAR:
-            asteroids.add((row, start_col))
-            break
-
-    for row in range(start_row+1, len(space_map[0])):
-        if space_map[row][start_col] == ASTEROID_CHAR:
-            asteroids.add((row, start_col))
-            break
-
     used_slopes = set()
-    for rise in range(0, len(space_map)):
-        for run in range(1, len(space_map[0])):
-            slope_fraction = fractions.Fraction(rise, run)
+    for rise in range(len(space_map)):
+        for run in range(len(space_map[0])):
+            effective_rise, effective_run = rise, run
+            if rise == 0 and run == 0:
+                continue
+            elif run == 0:
+                slope_fraction = math.inf
+            else:
+                slope_fraction = fractions.Fraction(rise, run)
+                effective_rise, effective_run = slope_fraction.numerator, slope_fraction.denominator
+
             if slope_fraction in used_slopes:
                 continue
 
             used_slopes.add(slope_fraction)
-            rise, run = slope_fraction.numerator, slope_fraction.denominator
-            found_asteroids = search_for_visible_in_all_directions(space_map, start_row, start_col, rise, run)
+            found_asteroids = search_for_visible_in_all_directions(space_map, start_row, start_col, effective_rise, effective_run)
             asteroids = asteroids.union(found_asteroids)
 
     return len(asteroids)
 
 
-def part1(space_map: Tuple[Tuple[int]]):
+def part1(space_map: Tuple[Tuple[int, ...]]):
     best_count = None
     for i, row in enumerate(space_map):
         for j, item in enumerate(row):
@@ -88,4 +85,5 @@ if __name__ == "__main__":
     for row in inputs:
         print(''.join(row))
 
+    # print(get_visible_asteroid_count(inputs, 0, 1))
     print(part1(inputs))
