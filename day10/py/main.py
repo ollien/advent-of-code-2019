@@ -38,17 +38,7 @@ def search_for_visible_in_all_directions(space_map: Tuple[Tuple[str, ...]], star
 
 def get_visible_asteroid_count(space_map: Tuple[Tuple[str, ...]], start_row: int, start_col: int) -> int:
     asteroids = set()
-    # This is so beyond gross, but it handles an edge case for checking both directions of the horizontal and vertical
-    for col in range(start_col-1, -1, -1):
-        if space_map[start_row][col] == ASTEROID_CHAR:
-            asteroids.add((start_row, col))
-            break
-
-    for col in range(start_col+1, len(space_map)):
-        if space_map[start_row][col] == ASTEROID_CHAR:
-            asteroids.add((start_row, col))
-            break
-
+    # Because the vertical slopes are undefined, we have to search for them manually
     for row in range(start_row-1, -1, -1):
         if space_map[row][start_col] == ASTEROID_CHAR:
             asteroids.add((row, start_col))
@@ -60,7 +50,7 @@ def get_visible_asteroid_count(space_map: Tuple[Tuple[str, ...]], start_row: int
             break
 
     used_slopes = set()
-    for rise in range(1, len(space_map)):
+    for rise in range(0, len(space_map)):
         for run in range(1, len(space_map[0])):
             slope_fraction = fractions.Fraction(rise, run)
             if slope_fraction in used_slopes:
