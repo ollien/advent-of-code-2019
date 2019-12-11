@@ -1,0 +1,52 @@
+--- day9intcode.py	2019-12-11 01:02:10.952864966 -0500
++++ day11intcode.py	2019-12-11 01:02:34.308613523 -0500
+@@ -1,7 +1,6 @@
+ import collections
+ import sys
+-from typing import List, Tuple, Optional
+-
++from typing import List, Tuple, Optional, DefaultDict
+ 
+ # Halt indicates that the assembled program should terminate
+ class Halt(Exception):
+@@ -136,7 +135,6 @@
+ 
+     def output(self, memory: Memory, value: int) -> None:
+         self.output = value
+-        print("OUTPUT:", value)
+ 
+     def jump_if_true(self, memory: Memory, test_value: int, new_instruction_pointer: int) -> Optional[int]:
+         return new_instruction_pointer if test_value != 0 else None
+@@ -154,13 +152,13 @@
+         self.rel_base += rel_base
+ 
+ 
+-# Executes the program, returning the instruction pointer to continue at (if the program paused) and a list of all
+-# outputs that occurred during the program's execution
+-def execute_program(memory: Memory, program_inputs: List[int], initial_instruction_pointer: int = 0) -> (Optional[int], List[int]):
++# Executes the program, returning the instruction pointer to continue at (if the program paused), the relative base,
++# and a list of all outputs that occurred during the program's execution
++def execute_program(memory: Memory, program_inputs: List[int], initial_instruction_pointer: int = 0, initial_rel_base: int = 0) -> (Optional[int], int, List[int]):
+     i = initial_instruction_pointer
+     input_cursor = 0
+-    rel_base = 0
+     outputs = []
++    rel_base = initial_rel_base
+     # Go up to the maximum address, not the number of addresses
+     while i < max(memory.keys()):
+         operation = Operation(memory[i])
+@@ -169,7 +167,7 @@
+         if operation.opcode == Operation.OPCODE_INPUT:
+             # If we are out of input, don't fail out, but rather just pause execution
+             if input_cursor >= len(program_inputs):
+-                return i, outputs
++                return i, rel_base, outputs
+             program_input = program_inputs[input_cursor]
+             input_cursor += 1
+ 
+@@ -182,4 +180,4 @@
+             outputs.append(output)
+ 
+     # The program is finished, and we are saying there is no instruction pointer
+-    return None, outputs
++    return None, rel_base, outputs
