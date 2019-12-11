@@ -34,14 +34,14 @@ class Operation:
     # Opcodes that write to memory as their last parameter
     MEMORY_OPCODES = (OPCODE_ADD, OPCODE_MULTIPLY, OPCODE_INPUT, OPCODE_LESS_THAN, OPCODE_EQUALS)
 
-    def __init__(self, instruction: int):
+    def __init__(self, instruction: int, rel_base: int = 0):
         # The opcode is the first two digits of the number, the rest are parameter modes
         self.opcode: int = instruction % 100
         if self.opcode not in Operation.ALL_OPCODES:
             raise ValueError(f"Bad opcode: {self.opcode}")
         self.modes: Tuple[int, ...] = self._extract_parameter_modes(instruction//100)
         self.output = None
-        self.rel_base = 0
+        self.rel_base = rel_base
 
     def _extract_parameter_modes(self, raw_modes) -> Tuple[int, ...]:
         PARAMETER_COUNTS = {
@@ -68,8 +68,8 @@ class Operation:
         return tuple(modes)
 
     # Run the given operation, starting at the given instruction pointer
-    # Returns the address that the instruction pointer should become, the relative base, followed by the output of the operation, if any
-    def run(self, memory: Memory, instruction_pointer: int, rel_base: int = 0, program_input: Optional[int] = None) -> Tuple[int, int, Optional[int]]:
+    # Returns the address that the instruction pointer should become
+    def run(self, memory: Memory, instruction_pointer: int, program_input: Optional[int] = None) -> int:
         OPERATION_FUNCS = {
             # nop for terminate
             Operation.OPCODE_TERMINATE: Operation.terminate,
@@ -86,7 +86,6 @@ class Operation:
 
         # Reset the output and rel base of a previous run
         self.output = None
-        self.rel_base = rel_base
 
         args = []
         for i, mode in enumerate(self.modes):
@@ -119,7 +118,7 @@ class Operation:
         if jump_addr is not None:
             out_addr = jump_addr
 
-        return out_addr, self.rel_base, self.output
+        return out_addr
 
     def terminate(self, memory: Memory) -> None:
         raise Halt("catch fire")
@@ -148,20 +147,20 @@ class Operation:
     def equals(self, memory: Memory, a: int, b: int, loc: int) -> None:
         memory[loc] = int(a == b)
 
-    def set_rel_base(self, memory: Memory, rel_base: int) -> None:
-        self.rel_base += rel_base
+    def set_rel_base(self, memory: Memory, base_delta: int) -> None:
+        self.rel_base += base_delta
 
 
 # Executes the program, returning the instruction pointer to continue at (if the program paused), the relative base,
 # and a list of all outputs that occurred during the program's execution
-def execute_program(memory: Memory, program_inputs: List[int], initial_instruction_pointer: int = 0, initial_rel_base: int = 0) -> (Optional[int], int, List[int]):
+def execute_program(memory: Memory, program_inputs: List[int], initial_instruction_pointer: int = 0, initial_rel_base: int = 0) -> Tuple[Optional[int], int, List[int]]:
     i = initial_instruction_pointer
     input_cursor = 0
     outputs = []
     rel_base = initial_rel_base
     # Go up to the maximum address, not the number of addresses
     while i < max(memory.keys()):
-        operation = Operation(memory[i])
+        operation = Operation(memory[i], rel_base)
         program_input = None
         # If we're looking for input
         if operation.opcode == Operation.OPCODE_INPUT:
@@ -172,7 +171,9 @@ def execute_program(memory: Memory, program_inputs: List[int], initial_instructi
             input_cursor += 1
 
         try:
-            i, rel_base, output = operation.run(memory, i, rel_base, program_input)
+            i = operation.run(memory, i, program_input)
+            output = operation.output
+            rel_base = operation.rel_base
         except Halt:
             break
 
