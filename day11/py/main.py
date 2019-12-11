@@ -1,6 +1,6 @@
 import collections
 import sys
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, DefaultDict
 
 # Halt indicates that the assembled program should terminate
 class Halt(Exception):
@@ -135,7 +135,6 @@ class Operation:
 
     def output(self, memory: Memory, value: int) -> None:
         self.output = value
-        print("OUTPUT:", value)
 
     def jump_if_true(self, memory: Memory, test_value: int, new_instruction_pointer: int) -> Optional[int]:
         return new_instruction_pointer if test_value != 0 else None
@@ -153,13 +152,13 @@ class Operation:
         self.rel_base += rel_base
 
 
-# Executes the program, returning the instruction pointer to continue at (if the program paused) and a list of all
-# outputs that occurred during the program's execution
-def execute_program(memory: Memory, program_inputs: List[int], initial_instruction_pointer: int = 0) -> (Optional[int], List[int]):
+# Executes the program, returning the instruction pointer to continue at (if the program paused), the relative base,
+# and a list of all outputs that occurred during the program's execution
+def execute_program(memory: Memory, program_inputs: List[int], initial_instruction_pointer: int = 0, initial_rel_base: int = 0) -> (Optional[int], int, List[int]):
     i = initial_instruction_pointer
     input_cursor = 0
-    rel_base = 0
     outputs = []
+    rel_base = initial_rel_base
     # Go up to the maximum address, not the number of addresses
     while i < max(memory.keys()):
         operation = Operation(memory[i])
@@ -168,7 +167,7 @@ def execute_program(memory: Memory, program_inputs: List[int], initial_instructi
         if operation.opcode == Operation.OPCODE_INPUT:
             # If we are out of input, don't fail out, but rather just pause execution
             if input_cursor >= len(program_inputs):
-                return i, outputs
+                return i, rel_base, outputs
             program_input = program_inputs[input_cursor]
             input_cursor += 1
 
@@ -181,45 +180,66 @@ def execute_program(memory: Memory, program_inputs: List[int], initial_instructi
             outputs.append(output)
 
     # The program is finished, and we are saying there is no instruction pointer
-    return None, outputs
+    return None, rel_base, outputs
 
 
-ROBOT_DIRECTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT']
-ROBOT_DELTAS = {
-    'UP': (0, 1),
-    'RIGHT': (-1, 0),
-    'DOWN': (0, -1),
-    'LEFT': (1, 0)
-}
+# Trace all of the painted points that the robot makes
+def trace_paints(initial_memory_state: Memory, initial_color: int = 0) -> DefaultDict[Tuple[int, int], int]:
+    ROBOT_DIRECTIONS = ['UP', 'RIGHT', 'DOWN', 'LEFT']
+    ROBOT_DELTAS = {
+        'UP': (0, 1),
+        'RIGHT': (-1, 0),
+        'DOWN': (0, -1),
+        'LEFT': (1, 0)
+    }
 
-
-def part1(inputs: Memory) -> int:
     colors = collections.defaultdict(lambda: 0)
+    colors[(0, 0)] = initial_color
 
     # Represents an index in ROBOT_DIRECTIONS
     robot_direction = 0
     robot_row, robot_col = (0, 0)
-    memory = inputs
+    memory = initial_memory_state.copy()
     last_ip = 0
-    while True:
-        d_row, d_col = ROBOT_DELTAS[ROBOT_DIRECTIONS[robot_direction]]
-        robot_row, robot_col = robot_row + d_row, robot_col + d_col
-
+    rel_base = 0
+    while last_ip is not None:
         current_color = colors[(robot_row, robot_col)]
-        last_ip, outputs = execute_program(memory, [current_color], last_ip)
-        if last_ip is None:
-            break
+        last_ip, rel_base, outputs = execute_program(memory, [current_color], last_ip, rel_base)
 
         paint_color, rotation_direction = outputs
         colors[(robot_row, robot_col)] = paint_color
+
+        # Rotate left/right respectively
         if rotation_direction == 0:
             robot_direction -= 1
         else:
             robot_direction += 1
 
+        # Set the new direction to the corresponding one in the ROBOT_DIRECTIONS list
         robot_direction %= len(ROBOT_DIRECTIONS)
 
+        d_row, d_col = ROBOT_DELTAS[ROBOT_DIRECTIONS[robot_direction]]
+        robot_row, robot_col = robot_row + d_row, robot_col + d_col
+
+    return colors
+
+
+def part1(inputs: Memory) -> int:
+    colors = trace_paints(inputs, 0)
+
     return len(colors)
+
+
+def part2(inputs: Memory) -> None:
+    colors = trace_paints(inputs, 1)
+    max_x = max(coord[0] for coord in colors)
+    max_y = max(coord[1] for coord in colors)
+    min_x = min(coord[0] for coord in colors)
+    min_y = min(coord[1] for coord in colors)
+    for j in reversed(range(min_y, max_y+1)):
+        for i in reversed(range(min_x, max_x+1)):
+            print('#' if colors[(i, j)] == 1 else ' ', end='')
+        print('')
 
 
 if __name__ == "__main__":
@@ -233,3 +253,4 @@ if __name__ == "__main__":
             memory[i] = int(item)
 
     print(part1(memory))
+    part2(memory)
