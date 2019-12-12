@@ -18,7 +18,7 @@ class Moon:
         self.z_velocity = 0
 
     @classmethod
-    def fromInputString(cls, input_str: str) -> 'Moon':
+    def from_input_string(cls, input_str: str) -> 'Moon':
         matches = re.findall(cls.INPUT_REGEXP, input_str)
         fields = {}
         for match in matches:
@@ -93,21 +93,21 @@ def part2(moons: Moon) -> int:
         'z': 1,
     }
 
-    foundCycle = {
+    found_cycle = {
         'x': False,
         'y': False,
         'z': False,
     }
 
     original_moons = copy.deepcopy(moons)
-    while not all(foundCycle.values()):
+    while not all(found_cycle.values()):
         apply_physics(moons)
-        for key in foundCycle:
-            if foundCycle[key]:
+        for key in found_cycle:
+            if found_cycle[key]:
                 continue
 
             counts[key] += 1
-            foundCycle[key] = all(getattr(original_moons[i], key) == getattr(moon, key) for i, moon in enumerate(moons))
+            found_cycle[key] = all(getattr(original_moons[i], key) == getattr(moon, key) for i, moon in enumerate(moons))
 
     return functools.reduce(lcm, counts.values())
 
@@ -118,7 +118,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     with open(sys.argv[1]) as f:
-        moons = [Moon.fromInputString(line.rstrip()) for line in f if len(line.rstrip()) > 0]
+        moons = [Moon.from_input_string(line.rstrip()) for line in f if len(line.rstrip()) > 0]
 
     print(part1(copy.deepcopy(moons)))
     print(part2(copy.deepcopy(moons)))
