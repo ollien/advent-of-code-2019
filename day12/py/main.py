@@ -1,6 +1,9 @@
 import itertools
 import sys
 import re
+import math
+import copy
+import functools
 
 
 class Moon:
@@ -62,14 +65,51 @@ class Moon:
                 f'vel=<x={self.x_velocity}, y={self.y_velocity}, z={self.z_velocity}>')
 
 
+# Apply all physics rules ot the given list of moons
+def apply_physics(moons: Moon):
+    for moon_1, moon_2 in itertools.combinations(moons, 2):
+        moon_1.apply_gravity(moon_2)
+    for moon in moons:
+        moon.update_position()
+
+
+def lcm(a: int, b: int) -> int:
+    return (a * b) // math.gcd(a, b)
+
+
 def part1(moons: Moon) -> int:
     for i in range(1000):
-        for moon_1, moon_2 in itertools.combinations(moons, 2):
-            moon_1.apply_gravity(moon_2)
-        for moon in moons:
-            moon.update_position()
+        apply_physics(moons)
 
     return sum(moon.kinetic_energy * moon.potential_energy for moon in moons)
+
+
+def part2(moons: Moon) -> int:
+    # Count until we hit the same thing (1 indicates that it will take one simulation to get the same value again),
+    # i.e. a nop
+    counts = {
+        'x': 1,
+        'y': 1,
+        'z': 1,
+    }
+
+    foundCycle = {
+        'x': False,
+        'y': False,
+        'z': False,
+    }
+
+    original_moons = copy.deepcopy(moons)
+    while not all(foundCycle.values()):
+        apply_physics(moons)
+        for key in foundCycle:
+            if foundCycle[key]:
+                continue
+
+            counts[key] += 1
+            foundCycle[key] = all(getattr(original_moons[i], key) == getattr(moon, key) for i, moon in enumerate(moons))
+
+    return functools.reduce(lcm, counts.values())
 
 
 if __name__ == '__main__':
@@ -80,4 +120,5 @@ if __name__ == '__main__':
     with open(sys.argv[1]) as f:
         moons = [Moon.fromInputString(line.rstrip()) for line in f if len(line.rstrip()) > 0]
 
-    print(part1(moons))
+    print(part1(copy.deepcopy(moons)))
+    print(part2(copy.deepcopy(moons)))
