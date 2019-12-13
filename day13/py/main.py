@@ -3,6 +3,7 @@ import enum
 import itertools
 import math
 import sys
+import os
 from typing import List, Tuple, Optional, DefaultDict, Iterable, Any
 
 
@@ -235,12 +236,22 @@ def run_game(initial_memory_state: Memory, playable: bool = False) -> (DefaultDi
             elif tile == Tile.BALL and paddle_position is not None:
                 # Input 0 if the ball is above the paddle, move the paddle towards the ball otherwise.
                 next_input = 0 if x == paddle_position[0] else int(math.copysign(1, x - paddle_position[0]))
-        print_screen(screen)
+
+        print_screen(screen, clear_before_print=playable)
 
     return screen, score
 
 
-def print_screen(screen, clear=False):
+def print_screen(screen, clear_before_print=False):
+    def clear():
+        if os.name == 'nt':
+            os.system('clr')
+        else:
+            print('\033c')
+
+    if clear_before_print:
+        clear()
+
     max_x = max(coord[0] for coord in screen)
     max_y = max(coord[1] for coord in screen)
     min_x = min(coord[0] for coord in screen)
