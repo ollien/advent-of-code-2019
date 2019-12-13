@@ -1,8 +1,10 @@
 import collections
 import enum
 import itertools
+import math
 import sys
 from typing import List, Tuple, Optional, DefaultDict, Iterable, Any
+
 
 # Halt indicates that the assembled program should terminate
 class Halt(Exception):
@@ -203,29 +205,78 @@ def group_iter(iterable: Iterable[Any], chunk_size: int):
 
 
 # Trace all of the painted points that the robot makes
-def run_game(initial_memory_state: Memory) -> DefaultDict[Tuple[int, int], int]:
+def run_game(initial_memory_state: Memory, playable: bool = False) -> (DefaultDict[Tuple[int, int], int], Optional[int]):
     screen = collections.defaultdict(lambda: Tile.EMPTY)
     next_ip = 0
     rel_base = 0
+    score = None
     memory = initial_memory_state.copy()
+    # Set the machine to free play mode
+    if playable:
+        memory[0] = 2
 
+    next_input = 0
+    paddle_position = None
     while next_ip is not None:
-        next_ip, rel_base, outputs = execute_program(memory, [], next_ip, rel_base)
-        for x, y, tile_id in group_iter(outputs, 3):
-            screen[(x, y)] = Tile(tile_id)
+        next_ip, rel_base, outputs = execute_program(memory, [next_input], next_ip, rel_base)
+        for x, y, value in group_iter(outputs, 3):
+            if x == -1 and y == 0:
+                score = value
+                continue
 
-    return screen
+            tile = Tile(value)
+            screen[(x, y)] = tile
+            # Everything after this if statement is concerned with moving the paddle, which is unneeded if the game isn't playable
+            if not playable:
+                continue
+
+            if tile == tile.PADDLE:
+                paddle_position = (x, y)
+            elif tile == Tile.BALL and paddle_position is not None:
+                # Input 0 if the ball is above the paddle, move the paddle towards the ball otherwise.
+                next_input = 0 if x == paddle_position[0] else int(math.copysign(1, x - paddle_position[0]))
+        print_screen(screen)
+
+    return screen, score
+
+
+def print_screen(screen, clear=False):
+    max_x = max(coord[0] for coord in screen)
+    max_y = max(coord[1] for coord in screen)
+    min_x = min(coord[0] for coord in screen)
+    min_y = min(coord[1] for coord in screen)
+    for j in range(min_y, max_y+1):
+        for i in range(min_x, max_x+1):
+            tile = screen[(i, j)]
+            if tile == Tile.BLOCK:
+                print('#', end='')
+            elif tile == Tile.BALL:
+                print('*', end='')
+            elif tile == tile.PADDLE:
+                print('=', end='')
+            elif tile != Tile.EMPTY:
+                print('.', end='')
+            else:
+                print(' ', end='')
+        print('')
 
 
 def part1(inputs: Memory) -> int:
-    screen = run_game(inputs)
+    screen = run_game(inputs)[0]
 
     return list(screen.values()).count(Tile.BLOCK)
 
 
+def part2(inputs: Memory) -> int:
+    score = run_game(inputs, True)[1]
+
+    return score
+
+
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: ./main.py in_file")
+    if len(sys.argv) != 3:
+        # Today's part 2 produces a lot of output, so i wanted to keep them separate
+        print("Usage: ./main.py in_file part")
         sys.exit(1)
 
     memory = Memory()
@@ -233,4 +284,9 @@ if __name__ == "__main__":
         for i, item in enumerate(f.read().rstrip().split(",")):
             memory[i] = int(item)
 
-    print(part1(memory))
+    parts = {
+        '1': part1,
+        '2': part2
+    }
+
+    print(parts[sys.argv[2]](memory))
