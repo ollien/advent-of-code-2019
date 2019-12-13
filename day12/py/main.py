@@ -85,12 +85,12 @@ def part1(moons: Moon) -> int:
 
 
 def part2(moons: Moon) -> int:
-    # Count until we hit the same thing (1 indicates that it will take one simulation to get the same value again),
-    # i.e. a nop
+    VELOCITY_FIELD_SUFFIX = '_velocity'
+    # Count until we hit the a 0 velocity and identical position to the starting position
     counts = {
-        'x': 1,
-        'y': 1,
-        'z': 1,
+        'x': 0,
+        'y': 0,
+        'z': 0,
     }
 
     found_cycle = {
@@ -107,7 +107,9 @@ def part2(moons: Moon) -> int:
                 continue
 
             counts[key] += 1
-            found_cycle[key] = all(getattr(original_moons[i], key) == getattr(moon, key) for i, moon in enumerate(moons))
+            found_cycle[key] = all(getattr(original_moons[i], key) == getattr(moon, key)
+                                   and getattr(moons[i], key + VELOCITY_FIELD_SUFFIX) == 0
+                                   for i, moon in enumerate(moons))
 
     return functools.reduce(lcm, counts.values())
 
