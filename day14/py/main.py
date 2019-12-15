@@ -129,18 +129,16 @@ def part2(reactions: List[Reaction], fuel_element: Element) -> int:
         fuel_amount *= 2
 
     # Binary search our answers, looking for the fuel amount that gives us the most ore.
-    best_fuel_amount = None
     while low <= high:
         fuel_amount = (low + high) // 2
         required_ore = find_ore_required_for_fuel_amount(fuel_amount, reactions, fuel_element)
         if required_ore >= THRESHOLD:
             high = fuel_amount - 1
         else:
-            if best_fuel_amount is None or fuel_amount > best_fuel_amount:
-                best_fuel_amount = fuel_amount
             low = fuel_amount + 1
 
-    return best_fuel_amount
+    # Our low will always be one over the target amount because of the + 1
+    return low - 1
 
 
 if __name__ == '__main__':
