@@ -69,7 +69,7 @@ def parse_reaction_list(input_lines: str) -> Tuple[List[Reaction], Element]:
     return reactions, elements[Element.FUEL_ELEMENT]
 
 
-def part1(reactions: List[Reaction], fuel_element: Element) -> int:
+def find_ore_required_for_fuel_amount(fuel_amount: int, reactions: List[Reaction], fuel_element: Element):
     surplus_elements = {}
     # Counts how many times a reaction with index i is run
     reaction_counts = {}
@@ -98,7 +98,7 @@ def part1(reactions: List[Reaction], fuel_element: Element) -> int:
             generate_reaction_counts(input_element, count * reactions_required)
 
     # Run our recursive algorithm to calculate how many reactions are required
-    generate_reaction_counts(fuel_element, 1)
+    generate_reaction_counts(fuel_element, fuel_amount)
     num_ore_required = 0
     for i, count in reaction_counts.items():
         for input_element, reaction_input_count in reactions[i].inputs.items():
@@ -106,6 +106,41 @@ def part1(reactions: List[Reaction], fuel_element: Element) -> int:
                 num_ore_required += count * reaction_input_count
 
     return num_ore_required
+
+
+def part1(reactions: List[Reaction], fuel_element: Element) -> int:
+    return find_ore_required_for_fuel_amount(1, reactions, fuel_element)
+
+
+def part2(reactions: List[Reaction], fuel_element: Element) -> int:
+    THRESHOLD = 1000000000000
+    fuel_amount = 1
+    low = None
+    high = None
+    required_ore = None
+    # Bound the problem by finding a range in which our answer could be
+    while required_ore is None or required_ore < THRESHOLD:
+        required_ore = find_ore_required_for_fuel_amount(fuel_amount, reactions, fuel_element)
+        if required_ore >= THRESHOLD:
+            high = fuel_amount
+            low = fuel_amount // 2
+            break
+
+        fuel_amount *= 2
+
+    # Binary search our answers, looking for the fuel amount that gives us the most ore.
+    best_fuel_amount = None
+    while low <= high:
+        fuel_amount = (low + high) // 2
+        required_ore = find_ore_required_for_fuel_amount(fuel_amount, reactions, fuel_element)
+        if required_ore >= THRESHOLD:
+            high = fuel_amount - 1
+        else:
+            if best_fuel_amount is None or fuel_amount > best_fuel_amount:
+                best_fuel_amount = fuel_amount
+            low = fuel_amount + 1
+
+    return best_fuel_amount
 
 
 if __name__ == '__main__':
@@ -118,3 +153,4 @@ if __name__ == '__main__':
         reactions, fuel_element = parse_reaction_list(lines)
 
     print(part1(reactions, fuel_element))
+    print(part2(reactions, fuel_element))
