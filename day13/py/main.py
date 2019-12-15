@@ -231,7 +231,7 @@ def run_game(initial_memory_state: Memory, playable: bool = False) -> (DefaultDi
             if not playable:
                 continue
 
-            if tile == tile.PADDLE:
+            if tile == Tile.PADDLE:
                 paddle_position = (x, y)
             elif tile == Tile.BALL and paddle_position is not None:
                 # Input 0 if the ball is above the paddle, move the paddle towards the ball otherwise.
