@@ -115,18 +115,8 @@ def part1(reactions: List[Reaction], fuel_element: Element) -> int:
 def part2(reactions: List[Reaction], fuel_element: Element) -> int:
     THRESHOLD = 1000000000000
     fuel_amount = 1
-    low = None
-    high = None
-    required_ore = None
-    # Bound the problem by finding a range in which our answer could be
-    while required_ore is None or required_ore < THRESHOLD:
-        required_ore = find_ore_required_for_fuel_amount(fuel_amount, reactions, fuel_element)
-        if required_ore >= THRESHOLD:
-            high = fuel_amount
-            low = fuel_amount // 2
-            break
-
-        fuel_amount *= 2
+    low = 0
+    high = THRESHOLD
 
     # Binary search our answers, looking for the fuel amount that gives us the most ore.
     while low <= high:
