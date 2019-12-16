@@ -229,6 +229,7 @@ class Node:
         WALL = 0
         OPEN = 1
         TARGET = 2
+        OXYGEN = 3
 
     def __init__(self, row: int, col: int, node_type: Type):
         self.row = row
@@ -351,6 +352,42 @@ def part1(all_nodes: Iterable[Node]) -> int:
     for node in all_nodes:
         if node.node_type == node.Type.TARGET:
             return node.distance
+    else:
+        raise Exception("No target node!")
+
+
+# Expects an iterable of nodes that are explorable (i.e. not walls)
+def part2(all_nodes: Iterable[Node]) -> int:
+    for node in all_nodes:
+        if node.node_type == node.Type.TARGET:
+            node.node_type = node.Type.OXYGEN
+            break
+    else:
+        raise Exception("No target node!")
+
+    # Due to our inability to make large copies of the graph, we need to store the node types by position
+    # We could _probably_ clean up the rest of the program to be in this form, but al ot of the graph searches would be
+    # less clean
+    node_types = {(node.row, node.col): node.node_type for node in all_nodes}
+    node_types_to_check = node_types.copy()
+    minutes = 0
+
+    # While we have nodes that aren't oxygen left over
+    while len([node_type for node_type in node_types_to_check.values() if node_type != Node.Type.OXYGEN]) > 0:
+        minutes += 1
+        for location, node_type in node_types_to_check.items():
+            if node_type != Node.Type.OXYGEN:
+                continue
+
+            for direction in Direction:
+                location_in_direction = Direction.move_coords_in_direction(direction, *location)
+                # Spread the oxygen if the tile exists and we're not spreading into a wall
+                if location_in_direction in node_types:
+                    node_types[location_in_direction] = Node.Type.OXYGEN
+
+        node_types_to_check = node_types.copy()
+
+    return minutes
 
 
 if __name__ == "__main__":
@@ -370,3 +407,4 @@ if __name__ == "__main__":
     print_graph(root_node)
 
     print(part1(nodes))
+    print(part2(nodes))
