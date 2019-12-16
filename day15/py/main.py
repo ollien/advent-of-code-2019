@@ -290,43 +290,6 @@ def build_graph_with_dfs(memory: Memory, root: Node) -> None:
     dfs(root)
 
 
-# A debug method that uses dfs to print the entire maze graph
-def print_graph(root: Node):
-    nodes = {}
-    visited = set()
-    to_visit = [root]
-    while len(to_visit) > 0:
-        node = to_visit.pop()
-        if node in visited:
-            continue
-
-        visited.add(node)
-        nodes[(node.row, node.col)] = node
-        for neighbor in node.neighbors.values():
-            to_visit.append(neighbor)
-
-    max_col = max(coord[0] for coord in nodes)
-    max_row = max(coord[1] for coord in nodes)
-    min_col = min(coord[0] for coord in nodes)
-    min_row = min(coord[1] for coord in nodes)
-    for i in range(min_row, max_row+1):
-        for j in range(min_col, max_col+1):
-            if (i, j) == (0, 0):
-                print('!', end='')
-            if (i, j) not in nodes:
-                print('?', end='')
-                continue
-
-            node = nodes[(i, j)]
-            if node.node_type == Node.Type.TARGET:
-                print('x', end='')
-            elif node.node_type == Node.Type.WALL:
-                print('#', end='')
-            else:
-                print(' ', end='')
-        print('')
-
-
 # Find the distance to all nodes in the graph, returning a set of the nodes explored
 def populate_graph_distances(root: Node) -> Set[Node]:
     root.distance = 0
@@ -388,6 +351,43 @@ def part2(all_nodes: Iterable[Node]) -> int:
         node_types_to_check = node_types.copy()
 
     return minutes
+
+
+# A debug method that uses dfs to print the entire maze graph
+def print_graph(root: Node):
+    nodes = {}
+    visited = set()
+    to_visit = [root]
+    while len(to_visit) > 0:
+        node = to_visit.pop()
+        if node in visited:
+            continue
+
+        visited.add(node)
+        nodes[(node.row, node.col)] = node
+        for neighbor in node.neighbors.values():
+            to_visit.append(neighbor)
+
+    max_col = max(coord[0] for coord in nodes)
+    max_row = max(coord[1] for coord in nodes)
+    min_col = min(coord[0] for coord in nodes)
+    min_row = min(coord[1] for coord in nodes)
+    for i in range(min_row, max_row+1):
+        for j in range(min_col, max_col+1):
+            if (i, j) == (0, 0):
+                print('!', end='')
+            if (i, j) not in nodes:
+                print('?', end='')
+                continue
+
+            node = nodes[(i, j)]
+            if node.node_type == Node.Type.TARGET:
+                print('x', end='')
+            elif node.node_type == Node.Type.WALL:
+                print('#', end='')
+            else:
+                print(' ', end='')
+        print('')
 
 
 if __name__ == "__main__":
