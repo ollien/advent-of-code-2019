@@ -1,6 +1,6 @@
 import sys
 import math
-from typing import Tuple
+from typing import Tuple, List
 
 BASE_PATTERN = (0, 1, 0, -1)
 
@@ -20,14 +20,17 @@ def stretch_pattern(i: int, length: int) -> Tuple[int, ...]:
     return trimmed_pattern
 
 
-def generate_second_half(input_num: str):
-    res = ''
+def generate_second_half(input_num: str) -> str:
     last_sum = 0
-    for char in reversed(input_num):
-        last_sum = int(char) + int(last_sum)
-        res = str(last_sum % 10) + res
+    # It is much much faster if, instead of concating a result as a string, we replace the results in a list in-place
+    # We could probably make this faster if we mutated a list each time instead of making a new list, but this is
+    # good enough(tm)
+    input_list = [int(digit) for digit in input_num]
+    for i, digit in reversed(tuple(enumerate(input_list))):
+        last_sum = digit + last_sum
+        input_list[i] = str(last_sum % 10)
 
-    return res
+    return ''.join(input_list)
 
 
 def run_pattern_round(input_num: str, offset: int) -> str:
@@ -62,7 +65,6 @@ def part1(input_num: str) -> str:
 
 
 def part2(input_num: str) -> str:
-    # This is super super slow (about 7 mins on my PC.) Need to find a way to speed it up
     offset = int(input_num[:7])
     return generate_all_pattern_rounds(input_num * 10000, offset)[:8]
 
