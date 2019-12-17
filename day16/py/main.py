@@ -20,24 +20,51 @@ def stretch_pattern(i: int, length: int) -> Tuple[int, ...]:
     return trimmed_pattern
 
 
-def run_pattern_round(input_num: str) -> str:
+def generate_second_half(input_num: str):
     res = ''
-    for i in range(len(input_num)):
-        pattern = stretch_pattern(i, len(input_num) + 1)[1:]
-        total = 0
-        for pattern_digit, digit in zip(pattern, input_num):
-            total += pattern_digit * int(digit)
-        res += str(abs(total) % 10)
+    last_sum = 0
+    for char in reversed(input_num):
+        last_sum = int(char) + int(last_sum)
+        res = str(last_sum % 10) + res
 
     return res
 
 
-def part1(input_num: str):
+def run_pattern_round(input_num: str, offset: int) -> str:
+    res = ''
+    for i in range(offset, len(input_num)//2):
+        pattern = stretch_pattern(i, len(input_num) + 1)[1:]
+        total = 0
+        for pattern_digit, digit in zip(pattern[i:], input_num[i:]):
+            total += pattern_digit * int(digit)
+        res += str(abs(total) % 10)
+
+    starting_pos = max(len(input_num)//2, offset)
+    res += generate_second_half(input_num[starting_pos:])
+
+    return res
+
+
+def generate_all_pattern_rounds(input_num: str, offset: int = 0) -> str:
     res = input_num
     for i in range(100):
-        res = run_pattern_round(res)
+        length_difference = len(input_num) - len(res)
+        if length_difference > len(input_num)//2:
+            res = generate_second_half(res[-length_difference:])
+        else:
+            res = run_pattern_round(res, offset)
 
-    return res[:8]
+    return res
+
+
+def part1(input_num: str) -> str:
+    return generate_all_pattern_rounds(input_num)[:8]
+
+
+def part2(input_num: str) -> str:
+    # This is super super slow (about 7 mins on my PC.) Need to find a way to speed it up
+    offset = int(input_num[:7])
+    return generate_all_pattern_rounds(input_num * 10000, offset)[:8]
 
 
 if __name__ == '__main__':
@@ -49,3 +76,4 @@ if __name__ == '__main__':
         input_num = f.read().rstrip('\n')
 
     print(part1(input_num))
+    print(part2(input_num))
