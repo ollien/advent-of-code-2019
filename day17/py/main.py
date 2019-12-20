@@ -293,6 +293,7 @@ def build_graph_from_program(initial_memory_state: Memory) -> (networkx.Graph, T
     return scaffold_graph, robot_pos
 
 
+# Make a path by being as greedy as possible - go forward until we can't anymore.
 def make_greedy_path(scaffold_graph: networkx.Graph, start_pos: Tuple[int, int]) -> str:
     path_components = []
     forward_count = 0
@@ -303,7 +304,7 @@ def make_greedy_path(scaffold_graph: networkx.Graph, start_pos: Tuple[int, int])
         next_pos = robot_direction.move_coords_in_direction(node_cursor)
         if next_pos not in scaffold_graph:
             possible_points = set(scaffold_graph.neighbors(node_cursor)) - set(visited)
-            next_pos = sorted(possible_points, key=lambda x: (x[0], x[1]))[0]
+            next_pos = min(possible_points, key=lambda x: (x[0], x[1]))
             new_direction = Direction.get_direction_to_coordinate(node_cursor, next_pos)
             turns_needed = robot_direction.get_turn_to_direction(new_direction)
             robot_direction = new_direction
@@ -325,7 +326,7 @@ def make_greedy_path(scaffold_graph: networkx.Graph, start_pos: Tuple[int, int])
 
 # Find a component of the string that occurs more than once, starting at the given position and checking forwards/backwards
 # based on the given offset
-def find_component(path: str, start: int, offset: int) -> str:
+def find_path_component(path: str, start: int, offset: int) -> str:
     component = path[start:offset] if offset > 0 else path[start + offset:]
     if (offset > 0 and component[-1] != ',') or (offset < 0 and component[0] != ','):
         return None
@@ -362,7 +363,7 @@ def dedup_path_string(s: str) -> str:
 
 
 # Given the two other components, see if there's one final component left in the string
-def get_last_component(path: str, component1: str, component2: str) -> Optional[str]:
+def get_last_path_component(path: str, component1: str, component2: str) -> Optional[str]:
     path_without_component1 = get_substrings_without_str(path, component1)
     # Get the path without component 1 or component 2
     remaining_comonents = []
@@ -380,35 +381,40 @@ def get_last_component(path: str, component1: str, component2: str) -> Optional[
     return last_component
 
 
+# Remove the given comopnent from the front and back of a string
+def remove_prefix_and_suffix(s: str, component: str) -> str:
+    res = s
+    if res.startswith(component):
+        res = res[len(component):].lstrip(',')
+    if res.endswith(component):
+        res = res[:-len(component)].rstrip(',')
+
+    return res
+
+
 # Find the three compressible components of the path
-# This is NOT pretty. This could be generalized by searching for all substrings, but that would be longer
+# This is NOT pretty. This could be generalized by searching for all substrings, but that would be longer running
 def find_compressable_path_components(path: str) -> Tuple[str, str, str]:
     MAX_LENGTH = 20
     for i in range(MAX_LENGTH + 1):
         path_candidate = path
         # Find the first component at the start of the string
-        component1 = find_component(path_candidate, 0, i)
+        component1 = find_path_component(path_candidate, 0, i)
         if component1 is None:
             continue
 
         # Remove it from both ends
-        path_candidate = path_candidate[len(component1):].lstrip(',')
-        if path_candidate.endswith(component1):
-            path_candidate = path_candidate[:-len(component1)].rstrip(',')
-
+        path_candidate = remove_prefix_and_suffix(path_candidate, component1)
         for j in range(MAX_LENGTH + 1):
             trimmed_candidate = path_candidate
             # We know there must be another unique component at the end of the string
-            component2 = find_component(trimmed_candidate, len(trimmed_candidate) - 1, -j)
+            component2 = find_path_component(trimmed_candidate, len(trimmed_candidate) - 1, -j)
             if component2 is None:
                 continue
 
             # Remove it from both ends
-            trimmed_candidate = trimmed_candidate[:-len(component2)].rstrip(',')
-            if trimmed_candidate.startswith(component2):
-                trimmed_candidate = trimmed_candidate[len(component2):].lstrip(',')
-
-            component3 = get_last_component(trimmed_candidate, component1, component2)
+            trimmed_candidate = remove_prefix_and_suffix(trimmed_candidate, component2)
+            component3 = get_last_path_component(trimmed_candidate, component1, component2)
             if component3 is None:
                 continue
 
@@ -486,7 +492,6 @@ def print_scaffold_graph(scaffold_graph: networkx.Graph) -> None:
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        # Today's part 2 produces a lot of output, so i wanted to keep them separate
         print("Usage: ./main.py in_file")
         sys.exit(1)
 
