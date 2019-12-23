@@ -1,9 +1,11 @@
 import networkx
+import itertools
 import sys
-from typing import List
+from typing import List, Tuple
 
 START_NODE_LABEL = 'AA'
 END_NODE_LABEL = 'ZZ'
+
 
 # Connect any adjacent nodes in the maze
 def connect_adjacent_nodes(graph: networkx.Graph):
@@ -15,6 +17,17 @@ def connect_adjacent_nodes(graph: networkx.Graph):
                 graph.add_edge(node, neighbor_candidate)
 
 
+# Check if the node is on the outer edge
+def is_outer_node(graph: networkx.Graph, node: Tuple[int, int]) -> bool:
+    min_row = min(graph.nodes, key=lambda x: x[0])[0]
+    max_row = max(graph.nodes, key=lambda x: x[0])[0]
+    min_col = min(graph.nodes, key=lambda x: x[1])[1]
+    max_col = max(graph.nodes, key=lambda x: x[1])[1]
+
+    return node[0] in (min_row, max_col) or node[1] in (min_col, max_col)
+
+
+# Add an edge between each portal of the same label
 def add_portal_edges(graph: networkx.Graph, input_lines: List[str]):
     known_portals = {}
     for node in graph.nodes:
@@ -32,9 +45,11 @@ def add_portal_edges(graph: networkx.Graph, input_lines: List[str]):
             if other_end is None:
                 known_portals[portal_id] = node
                 networkx.set_node_attributes(graph, {node: portal_id}, 'label')
+                networkx.set_node_attributes(graph, {node: is_outer_node(graph, node)}, 'outer')
             else:
                 graph.add_edge(node, other_end)
                 networkx.set_node_attributes(graph, {node: portal_id}, 'label')
+                networkx.set_node_attributes(graph, {node: is_outer_node(graph, node)}, 'outer')
 
 
 # Make the maze from the given input
@@ -50,7 +65,18 @@ def make_graph_from_input_lines(input_lines: List[str]) -> networkx.Graph:
     connect_adjacent_nodes(graph)
     add_portal_edges(graph, input_lines)
 
-    return graph
+    return reduce_graph_to_labelled_nodes(graph)
+
+
+def reduce_graph_to_labelled_nodes(graph: networkx.Graph) -> networkx.Graph:
+    reduced_graph = networkx.subgraph(graph, (node for node, label in graph.nodes.data('label') if label is not None))
+    reduced_graph = reduced_graph.copy()
+    for node1, node2 in itertools.combinations(reduced_graph.nodes, 2):
+        path = networkx.shortest_path(graph, node1, node2)
+        distance = len(path) - 1
+        reduced_graph.add_edge(node1, node2, distance=distance)
+
+    return reduced_graph
 
 
 def part1(graph: networkx.Graph) -> int:
@@ -58,7 +84,7 @@ def part1(graph: networkx.Graph) -> int:
     end_node = next(node for node, label in graph.nodes.data('label') if label == 'ZZ')
     path = networkx.shortest_path(graph, start_node, end_node)
 
-    return len(path) - 1
+    return sum(graph.edges[(node1, node2)]['distance'] for node1, node2 in zip(path, path[1:]))
 
 
 if __name__ == "__main__":
