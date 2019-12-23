@@ -56,7 +56,14 @@ class PathCache(dict):
     @dataclass
     class Entry:
         cost: int
-        path: List[Tuple[int, int]]
+
+    def __setitem__(self, key: Any, value: Any) -> None:
+        if not isinstance(key, PathCache.Key):
+            raise ValueError('Key must be of type PathCache.Key')
+        elif not isinstance(value, PathCache.Entry):
+            raise ValueError('Value must be of type PathCache.Entry')
+
+        super().__setitem__(key, value)
 
 
 # Make a graph from the maze input
@@ -151,7 +158,7 @@ def find_shortest_path_cost(
         starting_node: Optional[Tuple[int, int]] = None,
         visited: Optional[Set[str]] = None,
         path_cache: Optional[PathCache] = None,
-        shortest_paths: Optional[Dict[Tuple[int, int], Tuple[int, int]]] = None) -> Tuple[int, List[Tuple[int, int]]]:
+        shortest_paths: Optional[Dict[Tuple[int, int], Tuple[int, int]]] = None) -> int:
     if starting_node is None:
         # Start at the player node if no starting node is spcified
         starting_node = next(node for node, data in graph.nodes.data('info') if data.node_type == NodeType.PLAYER)
@@ -167,7 +174,7 @@ def find_shortest_path_cost(
                     if graph.nodes[node]['info'].char.lower() == graph.nodes[node]['info'].char
                     and graph.nodes[node]['info'].char.isalpha())
     if visited == key_nodes:
-        return 0, []
+        return 0
 
     collected_keys = set(graph.nodes[node]['info'].char for node in visited
                          if graph.nodes[node]['info'].char.lower() == graph.nodes[node]['info'].char)
@@ -175,10 +182,9 @@ def find_shortest_path_cost(
     cache_key = PathCache.Key.make_from_iterable(collected_keys, starting_node)
     cache_entry = path_cache.get(cache_key)
     if cache_entry is not None:
-        return (cache_entry.cost, cache_entry.path)
+        return cache_entry.cost
 
     could_check_path = False
-    best_path = None
     best_cost = math.inf
     for destination in key_nodes:
         path = shortest_paths[starting_node][destination]
@@ -191,21 +197,19 @@ def find_shortest_path_cost(
         visited_copy = visited.copy()
         visited_copy.update(path)
         cost = sum(graph.edges[(node1, node2)]['distance'] for node1, node2 in zip(path, path[1:]))
-        path_cost, rest_of_path = find_shortest_path_cost(graph, destination, visited_copy, path_cache, shortest_paths)
+        path_cost = find_shortest_path_cost(graph, destination, visited_copy, path_cache, shortest_paths)
         cost += path_cost
-        full_path = path + rest_of_path[1:]
         if cost < best_cost:
-            best_path = full_path
             best_cost = cost
 
     # If the loop didn't run, none of the paths are elgible for use.
     if not could_check_path:
-        path_cache[cache_key] = PathCache.Entry(0, [])
-        return 0, []
+        path_cache[cache_key] = PathCache.Entry(0)
+        return 0
 
-    path_cache[cache_key] = PathCache.Entry(best_cost, best_path)
+    path_cache[cache_key] = PathCache.Entry(best_cost)
 
-    return (best_cost, best_path)
+    return best_cost
 
 
 # Mark any doors within the graph that don't have paths as ignored
@@ -220,7 +224,7 @@ def mark_unopenable_doors_as_ignored(graph: networkx.Graph):
 
 def part1(graph: networkx.Graph) -> int:
     reduced_graph = make_reduced_graph(graph)
-    cost, _ = find_shortest_path_cost(reduced_graph)
+    cost = find_shortest_path_cost(reduced_graph)
 
     return cost
 
@@ -233,7 +237,7 @@ def part2(graph: networkx.Graph) -> int:
         # Therefore, we can just ignore all of the doors that we can't open within our path
         mark_unopenable_doors_as_ignored(subgraph)
 
-    return sum(find_shortest_path_cost(subgraph)[0] for subgraph in subgraphs)
+    return sum(find_shortest_path_cost(subgraph) for subgraph in subgraphs)
 
 
 # A debug function used to print the path as letters
@@ -260,7 +264,7 @@ if __name__ == "__main__":
         input_lines = [line.rstrip('\n') for line in f.readlines()]
 
     part1_graph = make_graph_from_input(input_lines)
-    # print(part1(part1_graph))
+    print(part1(part1_graph))
 
     part2_input = input_lines
     num_players = sum(line.count('@') for line in input_lines)
@@ -268,5 +272,4 @@ if __name__ == "__main__":
         part2_input = convert_input_to_part2(input_lines)
 
     part2_graph = make_graph_from_input(part2_input)
-    draw_graph(make_reduced_graph(part2_graph))
     print(part2(part2_graph))
