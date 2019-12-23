@@ -6,7 +6,7 @@ import enum
 import string
 import itertools
 from dataclasses import dataclass
-from typing import Any, Iterable, Set, List, Tuple, Optional, FrozenSet
+from typing import Any, Iterable, Dict, Set, List, Tuple, Optional, FrozenSet
 
 
 class NodeType(enum.Enum):
@@ -122,8 +122,8 @@ def find_shortest_path_cost(
         graph: networkx.Graph,
         starting_node: Optional[Tuple[int, int]] = None,
         visited: Optional[Set[str]] = None,
-        path_cache: PathCache = None,
-        depth: int = 0, prev_dest: str = None) -> Tuple[int, List[Tuple[int, int]]]:
+        path_cache: Optional[PathCache] = None,
+        shortest_paths: Optional[Dict[Tuple[int, int], Tuple[int, int]]] = None) -> Tuple[int, List[Tuple[int, int]]]:
     if starting_node is None:
         # Start at the player node if no starting node is spcified
         starting_node = next(node for node, data in graph.nodes.data('info') if data.node_type == NodeType.PLAYER)
@@ -131,6 +131,8 @@ def find_shortest_path_cost(
         visited = set((starting_node,))
     if path_cache is None:
         path_cache = PathCache()
+    if shortest_paths is None:
+        shortest_paths = networkx.shortest_path(graph)
 
     # If we have already visited all nodes, we're done, and there's no more cost to it.
     key_nodes = set(node for node in graph.nodes
@@ -139,7 +141,6 @@ def find_shortest_path_cost(
     if visited == key_nodes:
         return 0, []
 
-    shortest_paths = networkx.shortest_path(graph)
     collected_keys = set(graph.nodes[node]['info'].char for node in visited
                          if graph.nodes[node]['info'].char.lower() == graph.nodes[node]['info'].char)
 
@@ -166,7 +167,7 @@ def find_shortest_path_cost(
         visited_copy = visited.copy()
         visited_copy.update(path)
         cost = sum(graph.edges[(node1, node2)]['distance'] for node1, node2 in zip(path, path[1:]))
-        path_cost, rest_of_path = find_shortest_path_cost(graph, destination, visited_copy, path_cache)
+        path_cost, rest_of_path = find_shortest_path_cost(graph, destination, visited_copy, path_cache, shortest_paths)
         cost += path_cost
         full_path = path + rest_of_path[1:]
         if cost < best_cost:
