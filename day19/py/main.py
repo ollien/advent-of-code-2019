@@ -186,15 +186,50 @@ def execute_program(memory: Memory, program_inputs: List[int], initial_instructi
 
 
 # Problem specific code starts here
+def tractor_beam_at_pos(initial_memory_state: Memory, x: int, y: int) -> bool:
+    memory = initial_memory_state.copy()
+    _, _, output = execute_program(memory, [x, y])
+
+    return output[0] == 1
+
+
 def part1(initial_memory_state: Memory) -> int:
     count = 0
     for y in range(50):
         for x in range(50):
-            memory = initial_memory_state.copy()
-            _, _, output = execute_program(memory, [y, x])
-            count += output[0]
+            count += 1 if tractor_beam_at_pos(initial_memory_state, x, y) else 0
 
     return count
+
+
+def get_min_x_for_row(initial_memory_state: Memory, y: int, x_start: int = 0) -> int:
+    x = x_start
+    while not tractor_beam_at_pos(initial_memory_state, x, y):
+        x += 1
+        # If we've iterated this far, we can assume that this row won't have any tractor beam
+        if x == x_start + 100:
+            return None
+
+    return x
+
+
+def part2(initial_memory_state: Memory) -> int:
+    BOX_SIZE = 100
+    # Even though we have to fit within 100x100, if we include the current coord, adding 100 will give us a width of 101
+    BOX_SIZE_OFFSET = BOX_SIZE - 1
+    y = 0
+    last_min_x = 0
+    while (
+        not tractor_beam_at_pos(initial_memory_state, last_min_x + BOX_SIZE_OFFSET, y)
+        or not tractor_beam_at_pos(initial_memory_state, last_min_x, y - BOX_SIZE_OFFSET)
+        or not tractor_beam_at_pos(initial_memory_state, last_min_x + BOX_SIZE_OFFSET, y - BOX_SIZE_OFFSET)
+    ):
+        y += 1
+        row_min_x = get_min_x_for_row(initial_memory_state, y, last_min_x)
+        if row_min_x is not None:
+            last_min_x = row_min_x
+
+    return 10000 * last_min_x + (y - BOX_SIZE_OFFSET)
 
 
 if __name__ == "__main__":
@@ -208,3 +243,4 @@ if __name__ == "__main__":
             memory[i] = int(item)
 
     print(part1(memory))
+    print(part2(memory))
