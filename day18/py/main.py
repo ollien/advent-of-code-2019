@@ -40,6 +40,7 @@ class NodeType(enum.Enum):
 class Node:
     node_type: NodeType
     char: str
+    ignore: bool = False
 
 
 class PathCache(dict):
@@ -84,6 +85,29 @@ def make_graph_from_input(input_lines: List[str]) -> networkx.Graph:
     return graph
 
 
+# Convert the input string to one that can be used in part 2
+def convert_input_to_part2(input_lines: List[str]) -> List[str]:
+    player_line_index, player_line = next((i, line) for i, line in enumerate(input_lines) if '@' in line)
+    player_index = player_line.index('@')
+    res = input_lines.copy()
+    # Place player chars at the positions of the robots
+    for d_line, d_index in ((1, 1), (1, -1), (-1, -1), (-1, 1)):
+        new_index = player_index + d_index
+        line_to_update = res[player_line_index + d_line]
+        res[player_line_index + d_line] = line_to_update[:new_index] + '@' + line_to_update[new_index + 1:]
+
+    # Fill in the entire horizontal with wall chars
+    res[player_line_index] = '#' * len(player_line)
+    # Fill in the "plus sign" of wall chars
+    for d_line, d_index in ((1, 0), (0, 1), (-1, 0), (0, -1)):
+        new_index = player_index + d_index
+        line_to_update = res[player_line_index + d_line]
+        res[player_line_index + d_line] = line_to_update[:new_index] + '#' + line_to_update[new_index + 1:]
+
+    return res
+
+
+# Reduce the graph to remove the open nodes
 def make_reduced_graph(graph: networkx.Graph) -> networkx.Graph:
     interactive_nodes = {node: data for node, data in graph.nodes.data('info') if data.node_type != NodeType.OPEN}
     reduced_graph = networkx.Graph()
@@ -93,7 +117,10 @@ def make_reduced_graph(graph: networkx.Graph) -> networkx.Graph:
         reduced_graph.add_node(pos1, info=info1)
         reduced_graph.add_node(pos2, info=info2)
 
-        path = networkx.shortest_path(graph, pos1, pos2)
+        try:
+            path = networkx.shortest_path(graph, pos1, pos2)
+        except networkx.NetworkXNoPath:
+            continue
         # Check if any nodes are interactive and within the path.
         # We don't want to make an edge between node1 and node2 if there are.
         intermediate_interactive_nodes = set(path[1:-1]).intersection(set(interactive_nodes.keys()))
@@ -112,7 +139,8 @@ def path_is_clearable(graph: networkx.Graph, path: Iterable[Tuple[int, int]], co
         node_info = graph.nodes[node]['info']
         if node_info.node_type == NodeType.KEY:
             all_collected_keys.add(node_info.char)
-        elif node_info.node_type == NodeType.DOOR and node_info.char.lower() not in all_collected_keys:
+        elif (node_info.node_type == NodeType.DOOR and not node_info.ignore
+              and node_info.char.lower() not in all_collected_keys):
             return False
 
     return True
@@ -145,13 +173,9 @@ def find_shortest_path_cost(
                          if graph.nodes[node]['info'].char.lower() == graph.nodes[node]['info'].char)
 
     cache_key = PathCache.Key.make_from_iterable(collected_keys, starting_node)
-    try:
-        cache_entry = path_cache[cache_key]
+    cache_entry = path_cache.get(cache_key)
+    if cache_entry is not None:
         return (cache_entry.cost, cache_entry.path)
-    except KeyError:
-        # If we don't have a cache entry, keep going.
-        # We need to do this instead of .get because otherwise __missing__ won't be called.
-        pass
 
     could_check_path = False
     best_path = None
@@ -184,11 +208,32 @@ def find_shortest_path_cost(
     return (best_cost, best_path)
 
 
+# Mark any doors within the graph that don't have paths as ignored
+def mark_unopenable_doors_as_ignored(graph: networkx.Graph):
+    for node, data in graph.nodes.data('info'):
+        have_key = next((True for _, candidate_data in graph.nodes.data('info')
+                         if candidate_data.char == data.char.lower()),
+                        False)
+        if not have_key:
+            data.ignore = True
+
+
 def part1(graph: networkx.Graph) -> int:
     reduced_graph = make_reduced_graph(graph)
     cost, _ = find_shortest_path_cost(reduced_graph)
 
     return cost
+
+
+def part2(graph: networkx.Graph) -> int:
+    reduced_graph = make_reduced_graph(graph)
+    subgraphs = [reduced_graph.subgraph(component) for component in networkx.connected_components(reduced_graph)]
+    for subgraph in subgraphs:
+        # Because timing doesn't matter, we can assume that another robot will eventually collect a key within our path
+        # Therefore, we can just ignore all of the doors that we can't open within our path
+        mark_unopenable_doors_as_ignored(subgraph)
+
+    return sum(find_shortest_path_cost(subgraph)[0] for subgraph in subgraphs)
 
 
 # A debug function used to print the path as letters
@@ -214,5 +259,14 @@ if __name__ == "__main__":
     with open(sys.argv[1]) as f:
         input_lines = [line.rstrip('\n') for line in f.readlines()]
 
-    graph = make_graph_from_input(input_lines)
-    print(part1(graph))
+    part1_graph = make_graph_from_input(input_lines)
+    # print(part1(part1_graph))
+
+    part2_input = input_lines
+    num_players = sum(line.count('@') for line in input_lines)
+    if num_players == 1:
+        part2_input = convert_input_to_part2(input_lines)
+
+    part2_graph = make_graph_from_input(part2_input)
+    draw_graph(make_reduced_graph(part2_graph))
+    print(part2(part2_graph))
