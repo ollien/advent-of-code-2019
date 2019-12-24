@@ -2,7 +2,7 @@ import networkx
 import matplotlib.pyplot as plt
 import itertools
 import sys
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
 START_NODE_LABEL = 'AA'
 END_NODE_LABEL = 'ZZ'
@@ -87,13 +87,19 @@ def reduce_graph_to_labelled_nodes(graph: networkx.Graph) -> networkx.Graph:
 
     return reduced_graph
 
+# Given a portal node, find a node with the same label (and is thus the other end of the portal)
+def get_opposite_end_of_portal_node(graph: networkx.Graph, node: Tuple[int, int]) -> Tuple[int, int]:
+    for candidate_node in graph.nodes:
+        if graph.nodes[candidate_node]['label'] == graph.nodes[node]['label'] and candidate_node != node:
+            return candidate_node
+    else:
+        raise ValueError(f"Given node {graph.nodes[node]['label']} has no opposite")
+
 
 def part1(graph: networkx.Graph) -> int:
     start_node = next(node for node, label in graph.nodes.data('label') if label == START_NODE_LABEL)
     end_node = next(node for node, label in graph.nodes.data('label') if label == END_NODE_LABEL)
     path = networkx.shortest_path(graph, start_node, end_node)
-    # print("Doing the stupid thing")
-    # print(sum(1 for _ in networkx.all_simple_paths(graph, start_node, end_node)))
 
     return sum(graph.edges[(node1, node2)]['distance'] for node1, node2 in zip(path, path[1:]))
 
@@ -102,11 +108,24 @@ def part2(graph: networkx.Graph) -> int:
     start_node = next(node for node, label in graph.nodes.data('label') if label == START_NODE_LABEL)
     end_node = next(node for node, label in graph.nodes.data('label') if label == END_NODE_LABEL)
 
-    # Both to_visit and visited hold tuples of (node, level)
+    def get_neighbors_on_outer_edge(node: Tuple[int, int], depth: int) -> List[Tuple[int, int]]:
+        neighbors = []
+        for neighbor in graph.neighbors(node):
+            if not graph.nodes[neighbor]['outer']:
+                continue
+
+            # If the depth is zero, we only want to return AA and ZZ (if they are neighbors)
+            # If the depth is greater than zero, we want a node if it is any neighbor except for AA and ZZ
+            if ((depth == 0 and neighbor in (start_node, end_node))
+                    or (depth > 0 and neighbor not in (start_node, end_node))):
+                neighbors.append(neighbor)
+
+        return neighbors
+
+    # to_visit, visited, and distances hold tuples of (node, level)
     to_visit = [(start_node, 0)]
     visited = set()
     distances = {(start_node, 0): 0}
-    parent_nodes = {(start_node, 0): None}
     while len(to_visit) > 0:
         node, depth = to_visit.pop()
         if node == end_node and depth <= 0:
@@ -115,17 +134,9 @@ def part2(graph: networkx.Graph) -> int:
 
         visited.add((node, depth))
 
-        # Get all nodes that should be on the outer ring. On depth == 0, this is just the start and end nodes.
-        outer_neighbors = [candidate_node for candidate_node in graph.neighbors(node)
-                           if (graph.nodes[candidate_node]['outer']
-                               and ((depth == 0 and graph.nodes[candidate_node]['label'] in (START_NODE_LABEL, END_NODE_LABEL))
-                                    or (depth > 0 and graph.nodes[candidate_node]['label'] not in (START_NODE_LABEL, END_NODE_LABEL))
-                                    )
-                               )
-                           ]
-        inner_neighbors = [candidate_node for candidate_node in graph.neighbors(node) if not graph.nodes[candidate_node]['outer']]
-        # if depth == 10 and graph.nodes[node]['label'] == 'XQ':
-            # breakpoint()
+        outer_neighbors = get_neighbors_on_outer_edge(node, depth)
+        inner_neighbors = [candidate_node for candidate_node in graph.neighbors(node)
+                           if not graph.nodes[candidate_node]['outer']]
 
         # Go to the outer neighbors first to prioritize getting out
         for neighbor in outer_neighbors + inner_neighbors:
@@ -135,20 +146,24 @@ def part2(graph: networkx.Graph) -> int:
             elif (neighbor, depth) in visited:
                 continue
 
-            # Find the opposite end of the portal, which is any node with the same label
-            # Awful, I know.
-            opposite_end = next(candidate_node for candidate_node, label in graph.nodes.data('label')
-                                if ((label == graph.nodes[neighbor]['label'] and candidate_node != neighbor)
-                                    or candidate_node == end_node == neighbor))
+            # Find the opposite end of the portal, which is any node with the same label.
+            # If it's the end node, we consider it to be a portal to itself (articialially giving it a depth of 1)
+            if neighbor == end_node:
+                opposite_end = end_node
+            else:
+                opposite_end = get_opposite_end_of_portal_node(graph, neighbor)
+
             next_depth = depth - 1 if graph.nodes[neighbor]['outer'] else depth + 1
             to_explore = (opposite_end, next_depth)
 
             distance_to_neighbor = distances[(node, depth)] + graph.edges[(node, neighbor)]['distance']
             old_distance = distances.get((neighbor, depth))
+
+            # If we have found a distance to this node that's better than something we've already explored (or we don't
+            # have one, store it as the distance.
             if old_distance is None or old_distance > distance_to_neighbor:
                 distances[(neighbor, depth)] = distance_to_neighbor
             distances[to_explore] = distances[(neighbor, depth)] + 1
-            parent_nodes[to_explore] = (node, depth)
             if to_explore not in visited:
                 to_visit.insert(0, to_explore)
 
