@@ -1,6 +1,13 @@
 import re
 import sys
+import enum
 from typing import Callable, List, Tuple, Optional
+
+
+class Operation(enum.Enum):
+    DEAL_TO_STACK = 0
+    CUT = 1
+    DEAL_BY_N = 2
 
 
 def deal_to_stack(deck: List[int]) -> List[int]:
@@ -35,24 +42,29 @@ def deal_by_n(deck: List[int], n: int) -> List[int]:
 
 def parse_command(command: str) -> Tuple[Callable, Optional[int]]:
     if command == 'deal into new stack':
-        return deal_to_stack, None
+        return Operation.DEAL_TO_STACK, None
 
     match = re.match(r'deal with increment (\d+)', command)
     if match is not None:
-        return deal_by_n, int(match.groups()[0])
+        return Operation.DEAL_BY_N, int(match.groups()[0])
 
     match = re.match(r'cut (-?\d+)', command)
     if match is not None:
-        return cut_n_cards, int(match.groups()[0])
+        return Operation.CUT, int(match.groups()[0])
 
     raise ValueError('Unknown command')
 
 
-def part1(inputs: List[Tuple[Callable, Optional[int]]]) -> int:
+def part1(inputs: List[Operation]) -> int:
+    ACTIONS = {
+        Operation.DEAL_TO_STACK: deal_to_stack,
+        Operation.CUT: cut_n_cards,
+        Operation.DEAL_BY_N: deal_by_n
+    }
     deck = list(range(10007))
     for action, arg in inputs:
         args = [] if arg is None else [arg]
-        deck = action(deck, *args)
+        deck = ACTIONS[action](deck, *args)
 
     return deck.index(2019)
 

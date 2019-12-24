@@ -52,19 +52,19 @@ class DealByNTest(unittest.TestCase):
 class TestParsing(unittest.TestCase):
     def test_parse_deal_by_n(self):
         cmd = 'deal with increment 55'
-        self.assertEqual((main.deal_by_n, 55), main.parse_command(cmd))
+        self.assertEqual((main.Operation.DEAL_BY_N, 55), main.parse_command(cmd))
 
     def test_parse_deal_to_stack(self):
         cmd = 'deal into new stack'
-        self.assertEqual((main.deal_to_stack, None), main.parse_command(cmd))
+        self.assertEqual((main.Operation.DEAL_TO_STACK, None), main.parse_command(cmd))
 
     def test_parse_cut_n_cards(self):
         cmd = 'cut 55'
-        self.assertEqual((main.cut_n_cards, 55), main.parse_command(cmd))
+        self.assertEqual((main.Operation.CUT, 55), main.parse_command(cmd))
 
     def test_parse_cut_n_negative(self):
         cmd = 'cut -55'
-        self.assertEqual((main.cut_n_cards, -55), main.parse_command(cmd))
+        self.assertEqual((main.Operation.CUT, -55), main.parse_command(cmd))
 
 
 if __name__ == '__main__':
