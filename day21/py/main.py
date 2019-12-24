@@ -214,6 +214,30 @@ def part1(memory: Memory) -> int:
     return run_springcode(memory, springcode)
 
 
+def part2(memory: Memory) -> int:
+    springcode = [
+        # If any of the three in front of us are empty, and the fourth isn't, jump.
+        'NOT A T',
+        'NOT B J',
+        'OR T J',
+        'NOT C T',
+        'OR T J',
+        'AND D J',
+
+        # Check to make sure that the space after our jump is filled, and two jumps away.
+        # The one after two our jump should also be empty
+        'NOT F T',
+        'OR E T',
+        'OR H T',
+        # If this condition isn't met, cancel our jump
+        'AND T J',
+
+        'RUN'
+    ]
+
+    return run_springcode(memory, springcode)
+
+
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("Usage: ./main.py in_file")
@@ -225,3 +249,4 @@ if __name__ == "__main__":
             memory[i] = int(item)
 
     print(part1(memory))
+    print(part2(memory))
