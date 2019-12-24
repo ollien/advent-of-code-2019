@@ -200,35 +200,14 @@ def run_springcode(memory: Memory, springcode: List[str]) -> Optional[int]:
 
 def part1(memory: Memory) -> int:
     springcode = [
-        # Check if both tiles in front of us are empty
-        'NOT A J',
-        'NOT B T',
-        # If both are empty, set jump to true
-        'AND T J',
-        # Check if the third in front of us is empty
+        # If any of the three in front of us are empty, but the fourth one is not, jump.
+        'NOT A T',
+        'NOT B J',
+        'OR T J',
         'NOT C T',
-        'AND T J',
-        # Check if the fourth in front of us is set
+        'OR T J',
         'AND D J',
 
-        # If the one two after us is empty...
-        'NOT B T',
-        # And the one four in front of us it not...
-        'AND D T',
-        # If either T or J is set, jump
-        'OR T J',
-
-        # If the three after us is empty...
-        'NOT C T',
-        # If the one four after us is full...
-        'AND D T',
-        # If either T or J is set, jump
-        'OR T J',
-
-        # If the one directly in front of us is empty...
-        'NOT A T',
-        # If either T or J is set, jump
-        'OR T J',
         'WALK'
     ]
 
