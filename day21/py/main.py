@@ -225,8 +225,8 @@ def part2(memory: Memory) -> int:
         'AND D J',
 
         # Check to make sure that the space after our jump is filled, and two jumps away.
-        # The one after two our jump should also be empty
-        'NOT F T',
+        # J(~J + E + H) distributes TO (E + H)
+        'NOT J T',
         'OR E T',
         'OR H T',
         # If this condition isn't met, cancel our jump
