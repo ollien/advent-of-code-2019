@@ -191,20 +191,32 @@ def execute_program(memory: Memory, program_inputs: List[int], initial_instructi
 
 # Problem specific code starts here
 
-def run(initial_memory_state: Memory) -> None:
+def convert_input_to_ascii(s: str) -> List[int]:
+    return [ord(char) for char in s + '\n']
+
+
+def convert_ascii_output_to_text(outputs: List[int]) -> str:
+    return ''.join(chr(char) for char in outputs)
+
+
+def run(initial_memory_state: Memory, starting_inputs: List[str] = None) -> None:
     next_ip = 0
     rel_base = 0
-    next_input = []
+    next_input = [] if starting_inputs is None else starting_inputs
     while next_ip is not None:
+        if next_input is None:
+            input_str = input()
+            next_input = convert_input_to_ascii(input_str)
+
         next_ip, rel_base, _, outputs = execute_program(initial_memory_state, next_input, next_ip, rel_base)
-        print(''.join(chr(char) for char in outputs), end='')
-        input_str = input()
-        next_input = [ord(char) for char in input_str + '\n']
+        print(convert_ascii_output_to_text(outputs), end='')
+        next_input = None
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: ./main.py in_file")
+    if len(sys.argv) not in (2, 3):
+        print("Usage: ./main.py in_file [auto]")
+        print("       Specifying auto solves the text adventure for my personal input. Your results may vary")
         sys.exit(1)
 
     memory = Memory()
@@ -212,4 +224,31 @@ if __name__ == "__main__":
         for i, item in enumerate(f.read().rstrip().split(",")):
             memory[i] = int(item)
 
-    run(memory)
+    # The automatic input strings to compelte the text adventure for my input
+    AUTO_INPUT_STRINGS = [
+        'north',
+        'east',
+        'south',
+        'take hypercube',
+        'north',
+        'west',
+        'north',
+        'east',
+        'take tambourine',
+        'west',
+        'west',
+        'take spool of cat6',
+        'north',
+        'take weather machine',
+        'west',
+        'west',
+        'west'
+    ]
+
+    if len(sys.argv) == 3 and sys.argv[2] == 'auto':
+        auto_inputs = [ascii_char for input_str in AUTO_INPUT_STRINGS for ascii_char in convert_input_to_ascii(input_str)]
+        run(memory, auto_inputs)
+    elif len(sys.argv) == 3:
+        print(f"Invalid subcommand '{sys.argv[2]}'")
+    else:
+        run(memory)
