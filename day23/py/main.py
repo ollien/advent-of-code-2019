@@ -232,10 +232,20 @@ def group_iter(n: int, iterable: Iterable[T]) -> Iterable[Tuple[T, T, T]]:
     return itertools.zip_longest(*args)
 
 
-def part1(initial_memory_state: Memory) -> int:
+def run(initial_memory_state: Memory, part2=False) -> int:
     computers = [Computer(initial_memory_state) for i in range(50)]
+    nat_packet = None
+    last_nat_packet = None
 
     while True:
+        if nat_packet is not None and all(len(computer.to_send) == 0 for computer in computers):
+            if nat_packet == last_nat_packet:
+                return nat_packet[1]
+
+            computers[0].queue_send(nat_packet)
+            last_nat_packet = nat_packet
+            nat_packet = None
+
         for address, computer in enumerate(computers):
             computer_input = None if computer.booted else address
             if not computer.booted:
@@ -247,9 +257,12 @@ def part1(initial_memory_state: Memory) -> int:
 
             for output in outputs:
                 send_address, x, y = output
-                if send_address == 255:
+                if send_address == 255 and part2:
+                    nat_packet = (x, y)
+                elif send_address == 255 and not part2:
                     return y
-                computers[send_address].queue_send((x, y))
+                else:
+                    computers[send_address].queue_send((x, y))
 
 
 if __name__ == "__main__":
@@ -262,4 +275,5 @@ if __name__ == "__main__":
         for i, item in enumerate(f.read().rstrip().split(",")):
             memory[i] = int(item)
 
-    print(part1(memory))
+    print(run(memory, False))
+    print(run(memory, True))
