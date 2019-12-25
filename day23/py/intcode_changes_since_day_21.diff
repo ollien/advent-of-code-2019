@@ -1,0 +1,43 @@
+--- day21intcode.py	2019-12-25 00:28:32.711337297 -0500
++++ day23intcode.py	2019-12-25 00:29:29.514744969 -0500
+@@ -1,6 +1,7 @@
+ import collections
+ import sys
+-from typing import List, Tuple, Optional
++import itertools
++from typing import Iterable, List, Tuple, Optional, TypeVar
+ 
+ 
+ # Halt indicates that the assembled program should terminate
+@@ -153,10 +154,12 @@
+ 
+ 
+ # Executes the program, returning the instruction pointer to continue at (if the program paused), the relative base,
+-# and a list of all outputs that occurred during the program's execution
+-def execute_program(memory: Memory, program_inputs: List[int], initial_instruction_pointer: int = 0, initial_rel_base: int = 0) -> Tuple[Optional[int], int, List[int]]:
++# and a list of all inputs/outputs that occurred during the program's execution
++# This return signature is gross but it's day 23... I'm not going to rewrite it.
++def execute_program(memory: Memory, program_inputs: List[int], initial_instruction_pointer: int = 0, initial_rel_base: int = 0) -> Tuple[Optional[int], int, List[int], List[int]]:
+     i = initial_instruction_pointer
+     input_cursor = 0
++    consumed_inputs = []
+     outputs = []
+     rel_base = initial_rel_base
+     # Go up to the maximum address, not the number of addresses
+@@ -167,8 +170,9 @@
+         if operation.opcode == Operation.OPCODE_INPUT:
+             # If we are out of input, don't fail out, but rather just pause execution
+             if input_cursor >= len(program_inputs):
+-                return i, rel_base, outputs
++                return i, rel_base, consumed_inputs, outputs
+             program_input = program_inputs[input_cursor]
++            consumed_inputs.append(program_input)
+             input_cursor += 1
+ 
+         try:
+@@ -182,4 +186,4 @@
+             outputs.append(output)
+ 
+     # The program is finished, and we are saying there is no instruction pointer
+-    return None, rel_base, outputs
++    return None, rel_base, consumed_inputs, outputs
