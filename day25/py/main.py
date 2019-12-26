@@ -1,7 +1,11 @@
 import collections
-import sys
 import itertools
-from typing import Iterable, List, Tuple, Optional, TypeVar
+from dataclasses import dataclass
+import re
+import sys
+import enum
+import networkx
+from typing import List, Tuple, Optional
 
 
 # Halt indicates that the assembled program should terminate
@@ -188,8 +192,219 @@ def execute_program(memory: Memory, program_inputs: List[int], initial_instructi
     # The program is finished, and we are saying there is no instruction pointer
     return None, rel_base, consumed_inputs, outputs
 
-
 # Problem specific code starts here
+
+
+@dataclass
+class Room:
+    name: str
+    directions: List[str]
+    items: List[str]
+
+    @classmethod
+    def parse_output_to_room(cls, output: str):
+        OUTPUT_REGEX = re.compile(r'^\n*== (?P<room_name>.*?) ==.*'
+                                  r'?Doors here lead:\n(?P<directions>(?:- [^\n]*\n)*)\n'
+                                  r'(?:Items here:\n(?P<items>(?:- [^\n]*\n)*))?', flags=re.S)
+
+        match = re.match(OUTPUT_REGEX, output)
+        groups = match.groupdict()
+        directions = [direction[2:] for direction in groups['directions'].splitlines()]
+        items = []
+        if groups['items'] is not None:
+            items = [item[2:] for item in groups['items'].splitlines()]
+
+        return cls(groups['room_name'], directions, items)
+
+
+class Direction(enum.Enum):
+    NORTH = 'north'
+    SOUTH = 'south'
+    EAST = 'east'
+    WEST = 'west'
+
+    @staticmethod
+    def get_direction_from_delta(start_pos: Tuple[int, int], end_pos: Tuple[int, int]) -> 'Direction':
+        DELTAS = {
+            (-1, 0): Direction.NORTH,
+            (1, 0): Direction.SOUTH,
+            (0, 1): Direction.EAST,
+            (0, -1): Direction.WEST
+
+        }
+
+        d_row, d_col = (end_pos[0] - start_pos[0], end_pos[1] - start_pos[1])
+
+        return DELTAS[(d_row, d_col)]
+
+    def move_coords_in_direction(self, pos: Tuple[int, int]) -> Tuple[int, int]:
+        D_ROWS = {
+            Direction.NORTH: -1,
+            Direction.SOUTH: 1,
+            Direction.EAST: 0,
+            Direction.WEST: 0
+        }
+
+        D_COLS = {
+            Direction.NORTH: 0,
+            Direction.SOUTH: 0,
+            Direction.EAST: 1,
+            Direction.WEST: -1
+        }
+
+        return (pos[0] + D_ROWS[self], pos[1] + D_COLS[self])
+
+    def get_opposite(self) -> 'Direction':
+        OPPOSITES = {
+            Direction.NORTH: Direction.SOUTH,
+            Direction.SOUTH: Direction.NORTH,
+            Direction.EAST: Direction.WEST,
+            Direction.WEST: Direction.EAST
+        }
+
+        return OPPOSITES[self]
+
+
+class BadItem(Exception):
+    def __init__(self, item_name: str) -> None:
+        self.item_name = item_name
+
+        super().__init__()
+
+
+# Solves the text adventure automatically. A bit of a chonker, but it works
+def auto_solve(initial_memory_state: Memory) -> None:
+    TARGET_ROOM_NAME = 'Pressure-Sensitive Floor'
+    # A list of dangerous items. The two pre-provided do not end the run immediately and are harder to work around.
+    blacklisted_items = ['infinite loop', 'giant electromagnet']
+    graph = networkx.Graph()
+    visited = set()
+    next_ip = 0
+    rel_base = 0
+    memory = initial_memory_state.copy()
+    inventory = []
+
+    def execute_step(input_str: str) -> str:
+        nonlocal next_ip
+        nonlocal rel_base
+        next_input = convert_input_to_ascii(input_str) if len(input_str) > 0 else []
+        next_ip, rel_base, _, outputs = execute_program(memory, next_input, next_ip, rel_base)
+
+        return convert_ascii_output_to_text(outputs)
+
+    def explore_in_direction(direction: Direction) -> str:
+        return execute_step(direction.value)
+
+    def take_item(item_name: str) -> str:
+        output = execute_step(f'take {item_name}')
+        if next_ip is None:
+            raise BadItem(item_name)
+
+        inventory.append(item_name)
+
+        return output
+
+    def drop_item(item_name: str) -> str:
+        return execute_step(f'drop {item_name}')
+
+    def build_graph_with_dfs(node: Tuple[int, int], last_node: Optional[Tuple[int, int]] = None):
+        visited.add(node)
+        if last_node is None:
+            output = execute_step('')
+        else:
+            direction = Direction.get_direction_from_delta(last_node, node)
+            output = explore_in_direction(direction)
+
+        room = Room.parse_output_to_room(output)
+        graph.add_node(node, name=room.name)
+        if last_node is not None:
+            graph.add_edge(node, last_node)
+
+        if room.name == TARGET_ROOM_NAME:
+            return
+
+        for item in room.items:
+            if item in blacklisted_items:
+                continue
+            take_item(item)
+
+        for raw_direction in room.directions:
+            direction = Direction(raw_direction)
+            new_node = direction.move_coords_in_direction(node)
+            if new_node in visited:
+                continue
+
+            build_graph_with_dfs(new_node, node)
+            opposite_direction = direction.get_opposite()
+            explore_in_direction(opposite_direction)
+
+    # Find the items that without, we will be too light to enter the airlocked room, and enter it
+    def enter_airlock(direction_to_target: Direction) -> str:
+        all_items = inventory.copy()
+        required_items = []
+        for item in all_items:
+            drop_item(item)
+            output = explore_in_direction(direction_to_target)
+            # If we are told that all of the robots are heavier without this one item, we know we must need it.
+            if 'heavier' in output:
+                print(f'{item} is definitely required')
+                required_items.append(item)
+            elif 'proceed' in output:
+                # If we are told we can proceed, we are done.
+                return output
+
+            take_item(item)
+
+        remaining_items = []
+        for item in all_items:
+            if item not in required_items:
+                drop_item(item)
+                remaining_items.append(item)
+
+        # For the remaining items, we will check all subsets of the remaining items to see which we must take
+        for i in range(len(remaining_items)+1):
+            for subset in itertools.combinations(remaining_items, i):
+                print('Trying', ', '.join(required_items + list(subset)))
+                for item in subset:
+                    take_item(item)
+                output = explore_in_direction(direction_to_target)
+                if 'proceed' in output:
+                    return output
+
+                for item in subset:
+                    drop_item(item)
+        else:
+            raise ValueError('Could not find combination of items to enter airlock')
+
+    print('Searching for airlock and items...')
+    # Explore the full graph, collecting all items that we can
+    # Is there a smarter way to do this than starting from scratch? Yes, but it's just easiest to do it this way as we
+    # want to get all items anyway.
+    while True:
+        try:
+            memory = initial_memory_state.copy()
+            next_ip = 0
+            rel_base = 0
+            visited.clear()
+            graph.clear()
+            inventory.clear()
+            build_graph_with_dfs((0, 0))
+            break
+        except BadItem as e:
+            print(f'Blacklisting {e.item_name}')
+            blacklisted_items.append(e.item_name)
+
+    print('Found airlock. Attempting to enter...')
+    target_node = next(node for node, name in graph.nodes.data('name') if name == TARGET_ROOM_NAME)
+    nodes_to_target = networkx.shortest_path(graph, (0, 0), target_node)
+    for node1, node2 in zip(nodes_to_target[:-1], nodes_to_target[1:-1]):
+        direction = Direction.get_direction_from_delta(node1, node2)
+        explore_in_direction(direction)
+
+    direction_to_target = Direction.get_direction_from_delta(*nodes_to_target[-2:])
+    output = enter_airlock(direction_to_target)
+    print(output.splitlines()[-1])
+
 
 def convert_input_to_ascii(s: str) -> List[int]:
     return [ord(char) for char in s + '\n']
@@ -199,7 +414,7 @@ def convert_ascii_output_to_text(outputs: List[int]) -> str:
     return ''.join(chr(char) for char in outputs)
 
 
-def run(initial_memory_state: Memory, starting_inputs: List[str] = None) -> None:
+def run(memory: Memory, starting_inputs: List[str] = None) -> None:
     next_ip = 0
     rel_base = 0
     next_input = [] if starting_inputs is None else starting_inputs
@@ -208,15 +423,15 @@ def run(initial_memory_state: Memory, starting_inputs: List[str] = None) -> None
             input_str = input()
             next_input = convert_input_to_ascii(input_str)
 
-        next_ip, rel_base, _, outputs = execute_program(initial_memory_state, next_input, next_ip, rel_base)
+        next_ip, rel_base, _, outputs = execute_program(memory, next_input, next_ip, rel_base)
         print(convert_ascii_output_to_text(outputs), end='')
         next_input = None
 
 
 if __name__ == "__main__":
     if len(sys.argv) not in (2, 3):
-        print("Usage: ./main.py in_file [auto]")
-        print("       Specifying auto solves the text adventure for my personal input. Your results may vary")
+        print('Usage: ./main.py in_file [auto]')
+        print('       Speicfying auto attempts to solve the adventure automatically :)')
         sys.exit(1)
 
     memory = Memory()
@@ -246,8 +461,9 @@ if __name__ == "__main__":
     ]
 
     if len(sys.argv) == 3 and sys.argv[2] == 'auto':
-        auto_inputs = [ascii_char for input_str in AUTO_INPUT_STRINGS for ascii_char in convert_input_to_ascii(input_str)]
-        run(memory, auto_inputs)
+        # auto_inputs = [ascii_char for input_str in AUTO_INPUT_STRINGS for ascii_char in convert_input_to_ascii(input_str)]
+        # run(memory, auto_inputs)
+        auto_solve(memory)
     elif len(sys.argv) == 3:
         print(f"Invalid subcommand '{sys.argv[2]}'")
     else:
