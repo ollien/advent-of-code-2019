@@ -416,30 +416,7 @@ if __name__ == "__main__":
         for i, item in enumerate(f.read().rstrip().split(",")):
             memory[i] = int(item)
 
-    # The automatic input strings to compelte the text adventure for my input
-    AUTO_INPUT_STRINGS = [
-        'north',
-        'east',
-        'south',
-        'take hypercube',
-        'north',
-        'west',
-        'north',
-        'east',
-        'take tambourine',
-        'west',
-        'west',
-        'take spool of cat6',
-        'north',
-        'take weather machine',
-        'west',
-        'west',
-        'west'
-    ]
-
     if len(sys.argv) == 3 and sys.argv[2] == 'auto':
-        # auto_inputs = [ascii_char for input_str in AUTO_INPUT_STRINGS for ascii_char in convert_input_to_ascii(input_str)]
-        # run(memory, auto_inputs)
         auto_solve(memory)
     elif len(sys.argv) == 3:
         print(f"Invalid subcommand '{sys.argv[2]}'")
