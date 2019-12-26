@@ -195,11 +195,11 @@ def execute_program(memory: Memory, program_inputs: List[int], initial_instructi
 # Problem specific code starts here
 
 
-@dataclass
+@dataclass(eq=True, frozen=True)
 class Room:
     name: str
-    directions: List[str]
-    items: List[str]
+    directions: Tuple[str, ...]
+    items: Tuple[str, ...]
 
     @classmethod
     def parse_output_to_room(cls, output: str):
@@ -209,10 +209,10 @@ class Room:
 
         match = re.match(OUTPUT_REGEX, output)
         groups = match.groupdict()
-        directions = [direction[2:] for direction in groups['directions'].splitlines()]
-        items = []
+        directions = tuple(direction[2:] for direction in groups['directions'].splitlines())
+        items = ()
         if groups['items'] is not None:
-            items = [item[2:] for item in groups['items'].splitlines()]
+            items = tuple(item[2:] for item in groups['items'].splitlines())
 
         return cls(groups['room_name'], directions, items)
 
@@ -222,37 +222,6 @@ class Direction(enum.Enum):
     SOUTH = 'south'
     EAST = 'east'
     WEST = 'west'
-
-    @staticmethod
-    def get_direction_from_delta(start_pos: Tuple[int, int], end_pos: Tuple[int, int]) -> 'Direction':
-        DELTAS = {
-            (-1, 0): Direction.NORTH,
-            (1, 0): Direction.SOUTH,
-            (0, 1): Direction.EAST,
-            (0, -1): Direction.WEST
-
-        }
-
-        d_row, d_col = (end_pos[0] - start_pos[0], end_pos[1] - start_pos[1])
-
-        return DELTAS[(d_row, d_col)]
-
-    def move_coords_in_direction(self, pos: Tuple[int, int]) -> Tuple[int, int]:
-        D_ROWS = {
-            Direction.NORTH: -1,
-            Direction.SOUTH: 1,
-            Direction.EAST: 0,
-            Direction.WEST: 0
-        }
-
-        D_COLS = {
-            Direction.NORTH: 0,
-            Direction.SOUTH: 0,
-            Direction.EAST: 1,
-            Direction.WEST: -1
-        }
-
-        return (pos[0] + D_ROWS[self], pos[1] + D_COLS[self])
 
     def get_opposite(self) -> 'Direction':
         OPPOSITES = {
@@ -277,7 +246,7 @@ def auto_solve(initial_memory_state: Memory) -> None:
     TARGET_ROOM_NAME = 'Pressure-Sensitive Floor'
     # A list of dangerous items. The two pre-provided do not end the run immediately and are harder to work around.
     blacklisted_items = ['infinite loop', 'giant electromagnet']
-    graph = networkx.Graph()
+    graph = networkx.OrderedDiGraph()
     visited = set()
     next_ip = 0
     rel_base = 0
@@ -307,18 +276,23 @@ def auto_solve(initial_memory_state: Memory) -> None:
     def drop_item(item_name: str) -> str:
         return execute_step(f'drop {item_name}')
 
-    def build_graph_with_dfs(node: Tuple[int, int], last_node: Optional[Tuple[int, int]] = None):
-        visited.add(node)
-        if last_node is None:
+    def build_graph_with_dfs(direction_to_travel: Optional[Direction] = None, last_room: Optional[Room] = None):
+        if direction_to_travel is None:
             output = execute_step('')
         else:
-            direction = Direction.get_direction_from_delta(last_node, node)
-            output = explore_in_direction(direction)
+            output = explore_in_direction(direction_to_travel)
 
         room = Room.parse_output_to_room(output)
-        graph.add_node(node, name=room.name)
-        if last_node is not None:
-            graph.add_edge(node, last_node)
+        if room.name in visited:
+            # We will let the recursion handle undoing this movement.
+            print("in visited")
+            return
+
+        visited.add(room.name)
+        graph.add_node(room.name)
+        if last_room is not None:
+            graph.add_edge(last_room.name, room.name, direction=direction_to_travel)
+            graph.add_edge(room.name, last_room.name, direction=direction_to_travel.get_opposite())
 
         if room.name == TARGET_ROOM_NAME:
             return
@@ -330,11 +304,11 @@ def auto_solve(initial_memory_state: Memory) -> None:
 
         for raw_direction in room.directions:
             direction = Direction(raw_direction)
-            new_node = direction.move_coords_in_direction(node)
-            if new_node in visited:
+            # If we already have an edge from this node going in the same direction, we don't need to re-explore
+            if direction in [graph.edges[edge]['direction'] for edge in graph.edges(room.name)]:
                 continue
 
-            build_graph_with_dfs(new_node, node)
+            build_graph_with_dfs(direction, room)
             opposite_direction = direction.get_opposite()
             explore_in_direction(opposite_direction)
 
@@ -388,20 +362,23 @@ def auto_solve(initial_memory_state: Memory) -> None:
             visited.clear()
             graph.clear()
             inventory.clear()
-            build_graph_with_dfs((0, 0))
+            build_graph_with_dfs()
             break
         except BadItem as e:
             print(f'Blacklisting {e.item_name}')
             blacklisted_items.append(e.item_name)
 
     print('Found airlock. Attempting to enter...')
-    target_node = next(node for node, name in graph.nodes.data('name') if name == TARGET_ROOM_NAME)
-    nodes_to_target = networkx.shortest_path(graph, (0, 0), target_node)
+    # Because we're using an ordered graph, we know that the node we want to start with is the first in graph.nodes
+    # We also know from the DFS that we are still at the start node.
+    start_node = next(iter(graph.nodes))
+    target_node = next(node for node in graph.nodes if node == TARGET_ROOM_NAME)
+    nodes_to_target = networkx.shortest_path(graph, start_node, target_node)
     for node1, node2 in zip(nodes_to_target[:-1], nodes_to_target[1:-1]):
-        direction = Direction.get_direction_from_delta(node1, node2)
+        direction = graph.edges[(node1, node2)]['direction']
         explore_in_direction(direction)
 
-    direction_to_target = Direction.get_direction_from_delta(*nodes_to_target[-2:])
+    direction_to_target = graph.edges[nodes_to_target[-2:]]['direction']
     output = enter_airlock(direction_to_target)
     print(output.splitlines()[-1])
 
